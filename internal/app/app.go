@@ -3,14 +3,15 @@ package app
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 
-	"github.com/gsker/media-extraction-saas/internal/config"
-	"github.com/gsker/media-extraction-saas/internal/extractor"
-	"github.com/gsker/media-extraction-saas/internal/handlers"
-	"github.com/gsker/media-extraction-saas/internal/queue"
-	"github.com/gsker/media-extraction-saas/pkg/storage"
+	"github.com/KeremKalyoncu/MedYan/internal/config"
+	"github.com/KeremKalyoncu/MedYan/internal/extractor"
+	"github.com/KeremKalyoncu/MedYan/internal/handlers"
+	"github.com/KeremKalyoncu/MedYan/internal/queue"
+	"github.com/KeremKalyoncu/MedYan/pkg/storage"
 )
 
 // Container holds all application dependencies
@@ -93,7 +94,7 @@ func NewContainer(logger *zap.Logger) (*Container, error) {
 			"default":  3, // Standard quality
 			"low":      1, // Audio-only / low priority
 		},
-		ShutdownTimeout: cfg.Worker.ShutdownTimeout,
+		ShutdownTimeout: int(cfg.Worker.ShutdownTimeout / time.Second),
 		Logger:          logger,
 		Handler:         extractionHandler,
 	})
