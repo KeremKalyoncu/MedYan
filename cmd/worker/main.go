@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -11,10 +12,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/gsker/media-extraction-saas/internal/extractor"
-	"github.com/gsker/media-extraction-saas/internal/handlers"
-	"github.com/gsker/media-extraction-saas/internal/queue"
-	"github.com/gsker/media-extraction-saas/pkg/storage"
+	"github.com/KeremKalyoncu/MedYan/internal/extractor"
+	"github.com/KeremKalyoncu/MedYan/internal/handlers"
+	"github.com/KeremKalyoncu/MedYan/internal/queue"
+	"github.com/KeremKalyoncu/MedYan/pkg/storage"
 )
 
 func main() {
@@ -35,21 +36,44 @@ func main() {
 	s3Region := getEnv("S3_REGION", "us-east-1")
 	s3Endpoint := getEnv("S3_ENDPOINT", "")
 
+	// Disable localhost:9000 - not valid in production
+	if s3Endpoint == "http://localhost:9000" || s3Endpoint == "localhost:9000" {
+		s3Endpoint = ""
+	}
+
 	// Initialize extractors
 	ytdlp := extractor.NewYtDlp(ytdlpPath, 10*time.Minute, zapLogger)
 	ffmpeg := extractor.NewFFmpeg(ffmpegPath, 30*time.Minute, zapLogger)
 
 	// Initialize storage
-	s3Storage, err := storage.NewS3Storage(context.Background(), storage.Config{
-		Region:               s3Region,
-		Bucket:               s3Bucket,
-		Endpoint:             s3Endpoint,
-		PresignedURLExpiry:   24 * time.Hour,
-		StreamThresholdBytes: 500 * 1024 * 1024, // 500MB
-		Logger:               zapLogger,
-	})
-	if err != nil {
-		zapLogger.Fatal("Failed to initialize S3 storage", zap.Error(err))
+	// Use local file storage for now (S3 can be enabled via environment variables)
+	var fileStorage interface {
+		Upload(ctx context.Context, filePath, key string) error
+		UploadStream(ctx context.Context, reader io.Reader, key string) error
+		GetPresignedURL(ctx context.Context, key string) (string, error)
+	}
+
+	if s3Endpoint != "" && s3Endpoint != "disabled" {
+		// Use S3 if endpoint is configured
+		s3Stor, err := storage.NewS3Storage(context.Background(), storage.Config{
+			Region:               s3Region,
+			Bucket:               s3Bucket,
+			Endpoint:             s3Endpoint,
+			PresignedURLExpiry:   24 * time.Hour,
+			StreamThresholdBytes: 500 * 1024 * 1024,
+			Logger:               zapLogger,
+		})
+		if err != nil {
+			zapLogger.Fatal("Failed to initialize S3 storage", zap.Error(err))
+		}
+		fileStorage = s3Stor
+	} else {
+		// Use local file storage (default)
+		localStor, err := storage.NewLocalStorage("/app/downloads", zapLogger)
+		if err != nil {
+			zapLogger.Fatal("Failed to initialize local storage", zap.Error(err))
+		}
+		fileStorage = localStor
 	}
 
 	// Initialize queue client (for updating job status)
@@ -60,7 +84,7 @@ func main() {
 	extractionHandler := handlers.NewExtractionHandler(
 		ytdlp,
 		ffmpeg,
-		s3Storage,
+		fileStorage,
 		queueClient,
 		zapLogger,
 	)

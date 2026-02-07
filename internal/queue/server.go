@@ -8,7 +8,7 @@ import (
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
 
-	"github.com/gsker/media-extraction-saas/internal/types"
+	"github.com/KeremKalyoncu/MedYan/internal/types"
 )
 
 // Server wraps Asynq server for job processing
@@ -26,12 +26,12 @@ type JobHandler interface {
 
 // ServerConfig holds server configuration
 type ServerConfig struct {
-	RedisAddr      string
-	Concurrency    int
-	Queues         map[string]int
+	RedisAddr       string
+	Concurrency     int
+	Queues          map[string]int
 	ShutdownTimeout int // seconds
-	Logger         *zap.Logger
-	Handler        JobHandler
+	Logger          *zap.Logger
+	Handler         JobHandler
 }
 
 // NewServer creates a new queue server
@@ -39,10 +39,10 @@ func NewServer(cfg ServerConfig) *Server {
 	asynqServer := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: cfg.RedisAddr},
 		asynq.Config{
-			Concurrency: cfg.Concurrency,
-			Queues:      cfg.Queues,
+			Concurrency:    cfg.Concurrency,
+			Queues:         cfg.Queues,
 			StrictPriority: false, // Fair distribution across queues
-			Logger:      NewAsynqLogger(cfg.Logger),
+			Logger:         NewAsynqLogger(cfg.Logger),
 			ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
 				cfg.Logger.Error("Task failed",
 					zap.String("type", task.Type()),

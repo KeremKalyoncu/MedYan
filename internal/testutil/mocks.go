@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/gsker/media-extraction-saas/internal/types"
+	"github.com/KeremKalyoncu/MedYan/internal/types"
 	"go.uber.org/zap"
 )
 

@@ -5,9 +5,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/KeremKalyoncu/MedYan/internal/errors"
+	"github.com/KeremKalyoncu/MedYan/internal/types"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gsker/media-extraction-saas/internal/errors"
-	"github.com/gsker/media-extraction-saas/internal/types"
 	"go.uber.org/zap"
 )
 

@@ -17,46 +17,175 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/gsker/media-extraction-saas/internal/types"
+	"github.com/KeremKalyoncu/MedYan/internal/circuitbreaker"
+	"github.com/KeremKalyoncu/MedYan/internal/retry"
+	"github.com/KeremKalyoncu/MedYan/internal/types"
 )
 
-// YtDlp wraps yt-dlp for media extraction
+// YtDlp wraps yt-dlp for media extraction with resilience patterns
 type YtDlp struct {
-	binaryPath string
-	timeout    time.Duration
-	logger     *zap.Logger
+	binaryPath     string
+	timeout        time.Duration
+	logger         *zap.Logger
+	circuitBreaker *circuitbreaker.CircuitBreaker
+	retryConfig    retry.Config
 }
 
-// NewYtDlp creates a new yt-dlp wrapper
+// NewYtDlp creates a new yt-dlp wrapper with circuit breaker and retry logic
 func NewYtDlp(binaryPath string, timeout time.Duration, logger *zap.Logger) *YtDlp {
-	return &YtDlp{
-		binaryPath: binaryPath,
-		timeout:    timeout,
-		logger:     logger,
+	// Circuit breaker configuration
+	cbConfig := circuitbreaker.Config{
+		MaxRequests: 3,
+		Interval:    60 * time.Second,
+		Timeout:     30 * time.Second,
+		ReadyToTrip: func(counts circuitbreaker.Counts) bool {
+			// Trip if 5+ consecutive failures OR 60%+ failure rate with 10+ requests
+			return counts.ConsecutiveFailures >= 5 ||
+				(counts.Requests >= 10 && float64(counts.TotalFailures)/float64(counts.Requests) >= 0.6)
+		},
+		OnStateChange: func(name string, from circuitbreaker.State, to circuitbreaker.State) {
+			logger.Warn("Circuit breaker state changed",
+				zap.String("name", name),
+				zap.String("from", from.String()),
+				zap.String("to", to.String()),
+			)
+		},
 	}
+
+	cb := circuitbreaker.NewCircuitBreaker("yt-dlp", cbConfig)
+
+	// Retry configuration with exponential backoff
+	retryConfig := retry.Config{
+		MaxAttempts:     3,
+		InitialDelay:    500 * time.Millisecond,
+		MaxDelay:        10 * time.Second,
+		Multiplier:      2.0,
+		Jitter:          0.3,
+		RetryableErrors: isRetryableError,
+		OnRetry: func(attempt int, delay time.Duration, err error) {
+			logger.Warn("Retrying yt-dlp operation",
+				zap.Int("attempt", attempt),
+				zap.Duration("delay", delay),
+				zap.Error(err),
+			)
+		},
+	}
+
+	return &YtDlp{
+		binaryPath:     binaryPath,
+		timeout:        timeout,
+		logger:         logger,
+		circuitBreaker: cb,
+		retryConfig:    retryConfig,
+	}
+}
+
+// isRetryableError determines if error should trigger retry
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Don't retry circuit breaker open errors
+	if err == circuitbreaker.ErrCircuitOpen {
+		return false
+	}
+
+	errStr := strings.ToLower(err.Error())
+
+	// Retryable errors (transient failures)
+	retryablePatterns := []string{
+		"timeout",
+		"connection reset",
+		"connection refused",
+		"temporary failure",
+		"500", // Server error
+		"502", // Bad gateway
+		"503", // Service unavailable
+		"504", // Gateway timeout
+		"network",
+		"dns",
+	}
+
+	for _, pattern := range retryablePatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+
+	// Special handling for rate-limit (429) - retry with longer delay
+	if strings.Contains(errStr, "429") || strings.Contains(errStr, "rate") {
+		return true
+	}
+
+	// Non-retryable errors (permanent failures)
+	nonRetryablePatterns := []string{
+		"404",         // Not found
+		"403",         // Forbidden
+		"401",         // Unauthorized
+		"unsupported", // Unsupported site
+		"private",     // Private video
+		"copyright",   // Copyright claim
+		"unavailable", // Video unavailable
+		"removed",     // Video removed
+		"invalid",     // Invalid input
+		"malformed",   // Malformed request
+	}
+
+	for _, pattern := range nonRetryablePatterns {
+		if strings.Contains(errStr, pattern) {
+			return false
+		}
+	}
+
+	// Default: retry unknown errors (conservative approach)
+	return true
 }
 
 // ExtractMetadata extracts metadata from a URL without downloading
+// Uses circuit breaker and retry logic for resilience
 func (y *YtDlp) ExtractMetadata(ctx context.Context, url string) (*types.MediaMetadata, error) {
-	args := []string{
-		"--no-playlist", // Single video only
-		"--no-warnings",
-		"--skip-download", // Metadata only
-		"--print-json",    // One JSON object per item
-		url,
-	}
+	var metadata *types.MediaMetadata
 
-	output, err := y.execute(ctx, args)
+	// Wrap with circuit breaker and retry logic
+	err := y.circuitBreaker.Execute(ctx, func() error {
+		return retry.Retry(ctx, y.retryConfig, func() error {
+			args := []string{
+				"--no-playlist", // Single video only
+				"--no-warnings",
+				"--skip-download", // Metadata only
+				"--print-json",    // One JSON object per item
+			}
+
+			// Add YouTube-specific headers to bypass bot detection
+			if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
+				args = append(args,
+					"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+					"--extractor-args", "youtube:player_client=android_vr,web",
+				)
+			}
+
+			args = append(args, url)
+
+			output, err := y.execute(ctx, args)
+			if err != nil {
+				return fmt.Errorf("failed to extract metadata: %w", err)
+			}
+
+			rawData, err := extractJSONObjectFromOutput(output)
+			if err != nil {
+				return fmt.Errorf("failed to parse metadata: %w", err)
+			}
+
+			metadata = y.parseMetadata(rawData)
+			return nil
+		})
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract metadata: %w", err)
+		return nil, err
 	}
 
-	rawData, err := extractJSONObjectFromOutput(output)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse metadata: %w", err)
-	}
-
-	metadata := y.parseMetadata(rawData)
 	return metadata, nil
 }
 
@@ -80,19 +209,34 @@ func extractJSONObjectFromOutput(output string) (map[string]interface{}, error) 
 }
 
 // Download downloads media from URL to specified output path
+// Uses circuit breaker and retry logic for resilient downloads
 func (y *YtDlp) Download(ctx context.Context, url, outputPath string, opts DownloadOptions) (*types.MediaMetadata, error) {
-	args := y.buildDownloadArgs(url, outputPath, opts)
+	var metadata *types.MediaMetadata
 
-	y.logger.Info("Starting download",
-		zap.String("url", url),
-		zap.String("output", outputPath),
-		zap.Strings("args", args),
-	)
+	// Wrap with circuit breaker and retry logic
+	err := y.circuitBreaker.Execute(ctx, func() error {
+		return retry.Retry(ctx, y.retryConfig, func() error {
+			args := y.buildDownloadArgs(url, outputPath, opts)
 
-	// Execute with progress tracking
-	metadata, err := y.downloadWithProgress(ctx, args, opts.ProgressCallback)
+			y.logger.Info("Starting download",
+				zap.String("url", url),
+				zap.String("output", outputPath),
+				zap.Strings("args", args),
+			)
+
+			// Execute with progress tracking
+			var err error
+			metadata, err = y.downloadWithProgress(ctx, args, opts.ProgressCallback)
+			if err != nil {
+				return fmt.Errorf("download failed: %w", err)
+			}
+
+			return nil
+		})
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("download failed: %w", err)
+		return nil, err
 	}
 
 	return metadata, nil
@@ -140,6 +284,14 @@ func (y *YtDlp) buildDownloadArgs(url, outputPath string, opts DownloadOptions) 
 	} else {
 		formatStr := y.buildFormatString(opts.Quality, opts.Format)
 		args = append(args, "-f", formatStr)
+
+		// For non-standard formats, use remux/recode
+		if opts.Format != "" && opts.Format != "mp4" && opts.Format != "webm" {
+			args = append(args, "--recode-video", opts.Format)
+		} else if opts.Format != "" {
+			// Prefer merging into requested container
+			args = append(args, "--merge-output-format", opts.Format)
+		}
 	}
 
 	// Subtitles
@@ -157,9 +309,12 @@ func (y *YtDlp) buildDownloadArgs(url, outputPath string, opts DownloadOptions) 
 		args = append(args, "--cookies", opts.CookiesFile)
 	}
 
-	if opts.UserAgent != "" {
-		args = append(args, "--user-agent", opts.UserAgent)
+	// Default User-Agent if not provided
+	ua := opts.UserAgent
+	if ua == "" {
+		ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 	}
+	args = append(args, "--user-agent", ua)
 
 	if opts.ProxyURL != "" {
 		args = append(args, "--proxy", opts.ProxyURL)
@@ -179,22 +334,25 @@ func (y *YtDlp) buildDownloadArgs(url, outputPath string, opts DownloadOptions) 
 func (y *YtDlp) buildFormatString(quality, format string) string {
 	var formatStr string
 
+	// Use flexible format selection - don't restrict audio codec
+	// FFmpeg will handle merging different codecs
 	switch quality {
 	case "4k":
-		formatStr = "bestvideo[height<=2160][ext=mp4]+bestaudio[ext=m4a]/best[height<=2160]"
+		formatStr = "bestvideo[height<=2160]+bestaudio/best[height<=2160]/best"
 	case "1080p":
-		formatStr = "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]"
+		formatStr = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
 	case "720p":
-		formatStr = "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]"
+		formatStr = "bestvideo[height<=720]+bestaudio/best[height<=720]/best"
 	case "480p":
-		formatStr = "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480]"
+		formatStr = "bestvideo[height<=480]+bestaudio/best[height<=480]/best"
 	default:
-		formatStr = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+		formatStr = "bestvideo+bestaudio/best"
 	}
 
 	// Override extension if specific format requested
 	if format != "" && format != "mp4" {
-		formatStr = strings.ReplaceAll(formatStr, "[ext=mp4]", fmt.Sprintf("[ext=%s]", format))
+		// For non-mp4 formats, adjust the format string cautiously
+		formatStr = strings.ReplaceAll(formatStr, "[height<=720]", fmt.Sprintf("[ext=%s][height<=720]", format))
 	}
 
 	return formatStr
@@ -370,6 +528,54 @@ func (y *YtDlp) parseMetadata(data map[string]interface{}) *types.MediaMetadata 
 
 	if acodec, ok := data["acodec"].(string); ok {
 		metadata.AudioCodec = acodec
+	}
+
+	// Parse formats array from yt-dlp metadata
+	if formatsRaw, ok := data["formats"].([]interface{}); ok {
+		metadata.Formats = make([]types.FormatEntry, 0, len(formatsRaw))
+		for _, formatRaw := range formatsRaw {
+			if formatMap, ok := formatRaw.(map[string]interface{}); ok {
+				format := types.FormatEntry{}
+
+				if fid, ok := formatMap["format_id"].(string); ok {
+					format.FormatID = fid
+				}
+				if ext, ok := formatMap["ext"].(string); ok {
+					format.Ext = ext
+				}
+				if quality, ok := formatMap["quality"].(string); ok {
+					format.Quality = quality
+				}
+				if resolution, ok := formatMap["resolution"].(string); ok {
+					format.Resolution = resolution
+				}
+				if width, ok := formatMap["width"].(float64); ok {
+					format.Width = int(width)
+				}
+				if height, ok := formatMap["height"].(float64); ok {
+					format.Height = int(height)
+				}
+				if filesize, ok := formatMap["filesize"].(float64); ok {
+					format.Filesize = int64(filesize)
+				}
+				if bitrate, ok := formatMap["tbr"].(float64); ok {
+					format.Bitrate = int(bitrate)
+				}
+				if vcodec, ok := formatMap["vcodec"].(string); ok {
+					format.VideoCodec = vcodec
+				}
+				if acodec, ok := formatMap["acodec"].(string); ok {
+					format.AudioCodec = acodec
+				}
+
+				// Build quality label from height if not present
+				if format.Quality == "" && format.Height > 0 {
+					format.Quality = fmt.Sprintf("%dp", format.Height)
+				}
+
+				metadata.Formats = append(metadata.Formats, format)
+			}
+		}
 	}
 
 	return metadata

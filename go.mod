@@ -1,4 +1,4 @@
-module github.com/gsker/media-extraction-saas
+module github.com/KeremKalyoncu/MedYan
 
 go 1.22
 
@@ -12,6 +12,7 @@ require (
 	github.com/redis/go-redis/v9 v9.5.1
 	github.com/u2takey/ffmpeg-go v0.5.0
 	go.uber.org/zap v1.27.0
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (

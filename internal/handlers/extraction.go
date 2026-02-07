@@ -10,17 +10,18 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/gsker/media-extraction-saas/internal/extractor"
-	"github.com/gsker/media-extraction-saas/internal/queue"
-	"github.com/gsker/media-extraction-saas/internal/types"
-	"github.com/gsker/media-extraction-saas/pkg/storage"
+	"github.com/KeremKalyoncu/MedYan/internal/extractor"
+	"github.com/KeremKalyoncu/MedYan/internal/metrics"
+	"github.com/KeremKalyoncu/MedYan/internal/queue"
+	"github.com/KeremKalyoncu/MedYan/internal/types"
+	"github.com/KeremKalyoncu/MedYan/pkg/storage"
 )
 
 // ExtractionHandler handles media extraction jobs
 type ExtractionHandler struct {
 	ytdlp   *extractor.YtDlp
 	ffmpeg  *extractor.FFmpeg
-	storage *storage.S3Storage
+	storage storage.Storage
 	queue   *queue.Client
 	logger  *zap.Logger
 	tempDir string
@@ -30,7 +31,7 @@ type ExtractionHandler struct {
 func NewExtractionHandler(
 	ytdlp *extractor.YtDlp,
 	ffmpeg *extractor.FFmpeg,
-	s3Storage *storage.S3Storage,
+	s3Storage storage.Storage,
 	queueClient *queue.Client,
 	logger *zap.Logger,
 ) *ExtractionHandler {
@@ -46,9 +47,17 @@ func NewExtractionHandler(
 
 // HandleExtraction processes a media extraction job
 func (h *ExtractionHandler) HandleExtraction(ctx context.Context, job *types.ExtractionJob) error {
+	startTime := time.Now()
+	metricsInstance := metrics.GetMetrics()
+
+	// Detect platform from URL
+	platform := h.detectPlatform(job.Request.URL)
+	metricsInstance.RecordJobStart(platform)
+
 	h.logger.Info("Starting extraction",
 		zap.String("job_id", job.ID),
 		zap.String("url", job.Request.URL),
+		zap.String("platform", platform),
 	)
 
 	// Update status to processing
@@ -109,8 +118,15 @@ func (h *ExtractionHandler) HandleExtraction(ctx context.Context, job *types.Ext
 		return err
 	}
 
+	// Record metrics
+	duration := time.Since(startTime)
+	sizeMB := uint64(result.SizeBytes / (1024 * 1024))
+	metricsInstance.RecordJobSuccess(platform, duration, sizeMB)
+
 	h.logger.Info("Extraction completed successfully",
 		zap.String("job_id", job.ID),
+		zap.Duration("duration", duration),
+		zap.Uint64("size_mb", sizeMB),
 	)
 
 	return nil
@@ -172,10 +188,45 @@ func (h *ExtractionHandler) postProcess(ctx context.Context, job *types.Extracti
 
 	// Format conversion if requested
 	if job.Request.Format != "" {
-		outputFile, err := h.ffmpeg.ConvertFormat(ctx, inputFile, job.Request.Format, "libx264", "")
-		if err != nil {
-			return "", err
+		h.logger.Info("Converting format",
+			zap.String("job_id", job.ID),
+			zap.String("input", inputFile),
+			zap.String("target_format", job.Request.Format),
+		)
+
+		// Use copy codec if possible (no re-encoding, just remux)
+		// This is 100x faster and uses minimal memory
+		codec := "copy"
+
+		// Only re-encode if format change requires it
+		inputExt := strings.ToLower(filepath.Ext(inputFile))
+		targetExt := strings.ToLower(job.Request.Format)
+		if !strings.HasPrefix(targetExt, ".") {
+			targetExt = "." + targetExt
 		}
+
+		// If extensions are different and codecs are incompatible, re-encode
+		// But use fast, memory-efficient codec
+		if inputExt != targetExt {
+			// Check if we can just remux (container change only)
+			if canRemux(inputExt, targetExt) {
+				codec = "copy" // Just remux, no re-encoding
+			} else {
+				codec = "libx264" // Re-encode only if necessary
+			}
+		}
+
+		outputFile, err := h.ffmpeg.ConvertFormat(ctx, inputFile, job.Request.Format, codec, "")
+		if err != nil {
+			return "", fmt.Errorf("format conversion failed: %w", err)
+		}
+
+		h.logger.Info("Format conversion completed",
+			zap.String("job_id", job.ID),
+			zap.String("output", outputFile),
+			zap.String("codec", codec),
+		)
+
 		return outputFile, nil
 	}
 
@@ -183,6 +234,28 @@ func (h *ExtractionHandler) postProcess(ctx context.Context, job *types.Extracti
 	// (yt-dlp downloads at the requested quality, no post-processing needed)
 
 	return inputFile, nil
+}
+
+// canRemux checks if we can remux (container change) without re-encoding
+func canRemux(inputExt, targetExt string) bool {
+	// MP4, MKV, AVI can usually remux between each other
+	remuxable := map[string][]string{
+		".mp4":  {".mkv", ".avi", ".mov"},
+		".mkv":  {".mp4", ".avi", ".mov"},
+		".avi":  {".mp4", ".mkv"},
+		".mov":  {".mp4", ".mkv"},
+		".webm": {".mkv"},
+	}
+
+	if targets, ok := remuxable[inputExt]; ok {
+		for _, t := range targets {
+			if t == targetExt {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // uploadResult uploads the processed file to S3 and generates presigned URL
@@ -226,6 +299,10 @@ func (h *ExtractionHandler) handleError(ctx context.Context, jobID string, err e
 		zap.Error(err),
 	)
 
+	// Record failure metric (platform unknown here, could be improved)
+	metricsInstance := metrics.GetMetrics()
+	metricsInstance.RecordJobFailure("unknown")
+
 	if updateErr := h.queue.UpdateJobStatus(ctx, jobID, types.StatusFailed, 0, err.Error()); updateErr != nil {
 		h.logger.Error("Failed to update job status",
 			zap.Error(updateErr),
@@ -233,6 +310,32 @@ func (h *ExtractionHandler) handleError(ctx context.Context, jobID string, err e
 	}
 
 	return err
+}
+
+// detectPlatform detects platform from URL
+func (h *ExtractionHandler) detectPlatform(url string) string {
+	url = strings.ToLower(url)
+
+	if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
+		return "youtube"
+	}
+	if strings.Contains(url, "instagram.com") {
+		return "instagram"
+	}
+	if strings.Contains(url, "tiktok.com") {
+		return "tiktok"
+	}
+	if strings.Contains(url, "twitter.com") || strings.Contains(url, "x.com") {
+		return "twitter"
+	}
+	if strings.Contains(url, "facebook.com") || strings.Contains(url, "fb.watch") {
+		return "facebook"
+	}
+	if strings.Contains(url, "vimeo.com") {
+		return "vimeo"
+	}
+
+	return "other"
 }
 
 // findDownloadedFile locates the downloaded file

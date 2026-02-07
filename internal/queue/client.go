@@ -11,7 +11,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
-	"github.com/gsker/media-extraction-saas/internal/types"
+	"github.com/KeremKalyoncu/MedYan/internal/types"
 )
 
 // Task types
@@ -30,7 +30,7 @@ type Client struct {
 // NewClient creates a new queue client
 func NewClient(redisAddr string, logger *zap.Logger) *Client {
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
-	
+
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: redisAddr,
 	})

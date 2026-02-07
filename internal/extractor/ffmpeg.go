@@ -42,6 +42,9 @@ func (f *FFmpeg) ExtractAudio(ctx context.Context, inputPath, format, bitrate st
 	kwargs := ffmpeg.KwArgs{
 		"vn":     "", // No video
 		"acodec": f.getAudioCodec(format),
+		// Memory optimization for Railway
+		"threads":               "2",    // Limit CPU threads
+		"max_muxing_queue_size": "1024", // Prevent buffer bloat
 	}
 
 	if bitrate != "" {
@@ -97,13 +100,21 @@ func (f *FFmpeg) ConvertFormat(ctx context.Context, inputPath, outputFormat, cod
 
 	kwargs := ffmpeg.KwArgs{
 		"c:v": codec,
+		// Memory-efficient settings for Railway
+		"threads":               "2",          // Limit to 2 threads
+		"preset":                "veryfast",   // Fast encoding, less memory
+		"max_muxing_queue_size": "1024",       // Limit buffer size
+		"movflags":              "+faststart", // Web-optimized MP4
 	}
 
 	if bitrate != "" {
 		kwargs["b:v"] = bitrate
+	} else {
+		// Use CRF for quality-based encoding (more memory efficient)
+		kwargs["crf"] = "23" // Good quality, reasonable size
 	}
 
-	// Copy audio stream if possible
+	// Copy audio stream if possible (no re-encoding)
 	kwargs["c:a"] = "copy"
 
 	err := ffmpeg.Input(inputPath).
@@ -137,10 +148,16 @@ func (f *FFmpeg) DownscaleVideo(ctx context.Context, inputPath string, maxHeight
 		"c:v": codec,
 		"c:a": "copy",
 		"vf":  scaleFilter, // Use vf parameter instead of Filter()
+		// Memory optimization
+		"threads":               "2",
+		"preset":                "veryfast",
+		"max_muxing_queue_size": "1024",
 	}
 
 	if bitrate != "" {
 		kwargs["b:v"] = bitrate
+	} else {
+		kwargs["crf"] = "23"
 	}
 
 	err := ffmpeg.Input(inputPath).
