@@ -186,6 +186,20 @@ func main() {
 			})
 		}
 
+		// Quick duration check (max 3 minutes)
+		durationCtx, durationCancel := context.WithTimeout(c.Context(), 15*time.Second)
+		metadata, _ := ytdlp.ExtractMetadata(durationCtx, req.URL)
+		durationCancel()
+
+		if metadata != nil && metadata.Duration > 180 {
+			return c.Status(403).JSON(fiber.Map{
+				"error":        "VIDEO_TOO_LONG",
+				"duration":     metadata.Duration,
+				"max_duration": 180,
+				"message":      "Video süre limiti aşıldı. Şu anda maksimum 3 dakikalık videolar desteklenmektedir.",
+			})
+		}
+
 		// Use deduplication to coalesce identical URL requests
 		// Create a unique key based on URL and format settings
 		dedupKey := fmt.Sprintf("%s:%s:%v:%s:%s",
@@ -321,6 +335,20 @@ func main() {
 		if req.URL == "" {
 			return c.Status(400).JSON(fiber.Map{
 				"error": "URL is required",
+			})
+		}
+
+		// Quick duration check (max 3 minutes)
+		durationCtx, durationCancel := context.WithTimeout(c.Context(), 15*time.Second)
+		metadata, _ := ytdlp.ExtractMetadata(durationCtx, req.URL)
+		durationCancel()
+
+		if metadata != nil && metadata.Duration > 180 {
+			return c.Status(403).JSON(fiber.Map{
+				"error":        "VIDEO_TOO_LONG",
+				"duration":     metadata.Duration,
+				"max_duration": 180,
+				"message":      "Video süre limiti aşıldı. Şu anda maksimum 3 dakikalık videolar desteklenmektedir.",
 			})
 		}
 

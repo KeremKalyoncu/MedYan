@@ -1247,6 +1247,21 @@
 
                 if (!response.ok) {
                     const errorData = await response.json();
+                    
+                    // Handle duration limit
+                    if (errorData.error === 'VIDEO_TOO_LONG') {
+                        const duration = errorData.duration;
+                        const minutes = Math.floor(duration / 60);
+                        const seconds = duration % 60;
+                        showStatus(
+                            `✗ Video çok uzun! (${minutes}:${seconds.toString().padStart(2, '0')})<br>` +
+                            `Maksimum 3 dakika desteklenmektedir.`,
+                            'error'
+                        );
+                        submitBtn.disabled = false;
+                        return;
+                    }
+                    
                     throw new Error(errorData.error || 'Extraction failed');
                 }
 
