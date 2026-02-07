@@ -270,7 +270,7 @@ Made with 💜 by [Kerem Kalyoncu](https://github.com/Keremkalyoncu)
 
 🚀 **[MedYan'ı Kullanmaya Başlayın](https://keremkalyoncu.github.io/medyan)**
 
-*Copyright © 2024-2025 Kerem Kalyoncu. Açık kaynak topluluğu için tutkuyla geliştirildi.*
+*Copyright © 2025-2026 Kerem Kalyoncu. Açık kaynak topluluğu için tutkuyla geliştirildi.*
 
 </div>
 
