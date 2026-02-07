@@ -70,8 +70,11 @@ func main() {
 	detectionHandler := handlers.NewDetectionHandler(ytdlp, zapLogger)
 	zapLogger.Info("Smart platform detection enabled")
 
-	// Get API key from env (or use default for development)
-	apiKey := getEnv("API_KEY", "dev-key-change-me-in-production")
+	// API key is mandatory for security in production
+	apiKey := getEnv("API_KEY", "")
+	if apiKey == "" {
+		zapLogger.Fatal("API_KEY environment variable is required for security")
+	}
 
 	// Create Fiber app with optimized settings
 	app := fiber.New(fiber.Config{
@@ -97,10 +100,12 @@ func main() {
 		Format: "[${time}] ${status} - ${latency} ${method} ${path}\n",
 	}))
 
+	// CORS security: Only allow trusted origins
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
+		AllowOrigins: "https://keremkalyoncu.github.io, https://medyan-production.up.railway.app, http://localhost:3000",
 		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
-		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
+		AllowHeaders: "Origin,Content-Type,Accept,Authorization,X-API-Key",
+		AllowCredentials: true,
 	}))
 
 	// Rate limiting on proxy endpoints (100 req/min per IP)

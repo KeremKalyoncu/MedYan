@@ -4,22 +4,17 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// APIKeyAuth checks for valid API key
+// APIKeyAuth checks for valid API key (header only for security)
 func APIKeyAuth(validKey string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// Check header first
+		// Get API key from header only (never from URL/query to avoid logging in browser history)
 		apiKey := c.Get("X-API-Key")
 
-		// If not in header, check query parameter
-		if apiKey == "" {
-			apiKey = c.Query("api_key")
-		}
-
-		// If still empty or invalid
+		// Validate API key
 		if apiKey == "" || apiKey != validKey {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Invalid or missing API key",
-				"hint":  "Provide X-API-Key header or api_key query parameter",
+				"hint":  "Provide X-API-Key header with your API key",
 			})
 		}
 
