@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Extractor - Video & Müzik İndirin</title>
+    <title>Media Extractor - YouTube, Instagram, TikTok Video & Müzik İndir</title>
     <style>
         * {
             margin: 0;
@@ -198,7 +198,7 @@
     <div class="container">
         <div class="header">
             <h1>📥 Media Extractor</h1>
-            <p>YouTube videolarını ve müziği kolayca indirin</p>
+            <p>YouTube, Instagram, TikTok ve 1000+ siteden video/müzik indirin</p>
         </div>
 
         <form id="extractForm">
@@ -207,7 +207,7 @@
                 <input 
                     type="text" 
                     id="videoUrl" 
-                    placeholder="https://www.youtube.com/watch?v=..." 
+                    placeholder="https://www.youtube.com/watch?v=... veya Instagram/TikTok linki" 
                     required
                 >
             </div>
@@ -216,14 +216,29 @@
                 <div class="form-group">
                     <label for="format">Format</label>
                     <select id="format" required>
-                        <option value="mp4">Video (MP4) 🎬</option>
-                        <option value="mp3">Müzik (MP3) 🎵</option>
+                        <optgroup label="🎵 Audio Only">
+                            <option value="mp3">MP3 (Most Compatible)</option>
+                            <option value="aac">AAC (High Quality)</option>
+                            <option value="flac">FLAC (Lossless)</option>
+                            <option value="wav">WAV (Uncompressed)</option>
+                            <option value="opus">OPUS (Efficient)</option>
+                            <option value="m4a">M4A (Apple)</option>
+                        </optgroup>
+                        <optgroup label="🎬 Video + Audio">
+                            <option value="mp4" selected>MP4 (Universal)</option>
+                            <option value="webm">WEBM (Open Format)</option>
+                            <option value="mkv">MKV (High Quality)</option>
+                            <option value="avi">AVI (Classic)</option>
+                            <option value="mov">MOV (QuickTime)</option>
+                            <option value="flv">FLV (Flash)</option>
+                        </optgroup>
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="quality">Kalite</label>
+                <div class="form-group" id="qualityGroup">
+                    <label for="quality" id="qualityLabel">Kalite</label>
                     <select id="quality" required>
+                        <!-- Dinamik olarak değişecek -->
                         <option value="best">En İyi</option>
                         <option value="1080p">1080p</option>
                         <option value="720p" selected>720p</option>
@@ -245,26 +260,64 @@
 
         <div class="info-box">
             <strong>ℹ️ Nasıl Çalışır?</strong><br>
-            1. YouTube linkini yapıştır<br>
-            2. Format ve kalite seç<br>
-            3. "İndirmeye Başla" butonuna tıkla<br>
-            4. İndirme linkini al ve indir
+            1. YouTube, Instagram, TikTok linkini yapıştır<br>
+            2. Format seç (Audio: MP3/AAC/FLAC | Video: MP4/WEBM/MKV)<br>
+            3. Kalite/Bitrate ayarla<br>
+            4. "İndirmeye Başla" → İndir!<br><br>
+            <strong>📱 Desteklenen Platformlar:</strong><br>
+            YouTube • Instagram • TikTok • Twitter • Facebook • Vimeo • 1000+ site
         </div>
     </div>
 
     <script>
         // API Konfigürasyonu
-        const API_URL = 'https://your-api.railway.app'; // BURAYA RAILWAY URL GELECEK
-        const API_KEY = 'your-api-key'; // BURAYA API KEY GELECEK
+        const API_URL = 'https://medyan-production.up.railway.app'; // Railway Production URL
 
         const form = document.getElementById('extractForm');
         const videoUrlInput = document.getElementById('videoUrl');
         const formatSelect = document.getElementById('format');
         const qualitySelect = document.getElementById('quality');
+        const qualityLabel = document.getElementById('qualityLabel');
         const submitBtn = document.getElementById('submitBtn');
         const statusDiv = document.getElementById('status');
         const statusMessage = document.getElementById('statusMessage');
         const progressFill = document.getElementById('progressFill');
+
+        // Audio format listesi
+        const audioFormats = ['mp3', 'aac', 'flac', 'wav', 'opus', 'm4a'];
+
+        // Format değiştiğinde quality/bitrate seçeneklerini güncelle
+        formatSelect.addEventListener('change', updateQualityOptions);
+
+        function updateQualityOptions() {
+            const format = formatSelect.value;
+            const isAudio = audioFormats.includes(format);
+
+            if (isAudio) {
+                // Audio için bitrate seçenekleri
+                qualityLabel.textContent = 'Bitrate';
+                qualitySelect.innerHTML = `
+                    <option value="320k">320 kbps (En Yüksek)</option>
+                    <option value="192k" selected>192 kbps (Yüksek)</option>
+                    <option value="128k">128 kbps (Normal)</option>
+                    <option value="96k">96 kbps (Düşük)</option>
+                `;
+            } else {
+                // Video için resolution seçenekleri
+                qualityLabel.textContent = 'Kalite';
+                qualitySelect.innerHTML = `
+                    <option value="4k">4K (2160p)</option>
+                    <option value="1080p">Full HD (1080p)</option>
+                    <option value="720p" selected>HD (720p)</option>
+                    <option value="480p">SD (480p)</option>
+                    <option value="360p">360p</option>
+                    <option value="best">En İyi Kalite</option>
+                `;
+            }
+        }
+
+        // Sayfa yüklendiğinde initial state'i ayarla
+        updateQualityOptions();
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -286,18 +339,29 @@
             progressFill.style.width = '0%';
 
             try {
-                // API'ye istek gönder
-                const response = await fetch(`${API_URL}/api/v1/extract?api_key=${API_KEY}`, {
+                const isAudio = audioFormats.includes(format);
+                
+                // Request body'yi hazırla
+                const requestBody = {
+                    url: url,
+                    format: isAudio ? 'mp3' : format, // Audio ise mp3 container, video ise seçilen format
+                    quality: quality
+                };
+
+                // Audio için ek parametreler
+                if (isAudio) {
+                    requestBody.extract_audio = true;
+                    requestBody.audio_format = format; // mp3, aac, flac, etc.
+                    requestBody.audio_bitrate = quality; // 128k, 192k, 320k
+                }
+
+                // API'ye istek gönder (API key backend'de gizli tutulur)
+                const response = await fetch(`${API_URL}/proxy/extract`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-API-Key': API_KEY
+                        'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        url: url,
-                        format: format,
-                        quality: quality
-                    })
+                    body: JSON.stringify(requestBody)
                 });
 
                 if (!response.ok) {
@@ -317,16 +381,16 @@
         }
 
         async function pollJobStatus(jobId, attempts = 0) {
-            if (attempts > 120) { // 4 dakika timeout
+            if (attempts > 300) { // 10 dakika timeout (300 * 2 saniye)
                 showStatus('❌ İşlem zaman aşımına uğradı', 'error');
                 submitBtn.disabled = false;
                 return;
             }
 
             try {
-                const response = await fetch(`${API_URL}/api/v1/jobs/${jobId}?api_key=${API_KEY}`, {
+                const response = await fetch(`${API_URL}/proxy/jobs/${jobId}`, {
                     headers: {
-                        'X-API-Key': API_KEY
+                        'Content-Type': 'application/json'
                     }
                 });
 
@@ -338,7 +402,11 @@
                 }
 
                 if (job.status === 'completed') {
-                    const downloadUrl = job.result.download_url;
+                    // Build full download URL using API_URL for local storage files
+                    const downloadUrl = job.result.download_url.startsWith('http') 
+                        ? job.result.download_url 
+                        : API_URL + job.result.download_url;
+                    
                     showStatus(
                         `✅ Başarılı!<br><a href="${downloadUrl}" class="download-link" download>📥 İNDİR</a>`,
                         'success'
