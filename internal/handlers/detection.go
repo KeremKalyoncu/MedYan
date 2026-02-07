@@ -88,7 +88,8 @@ func (h *DetectionHandler) DetectURL(c *fiber.Ctx) error {
 	platformInfo := getPlatformInfo(platform)
 
 	// Try to extract metadata to get detailed info
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	// 8 second timeout: reasonable for YouTube + other platforms
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
 	metadata, err := h.ytdlp.ExtractMetadata(ctx, req.URL)
