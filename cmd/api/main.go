@@ -102,9 +102,9 @@ func main() {
 
 	// CORS security: Only allow trusted origins
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "https://keremkalyoncu.github.io, https://medyan-production.up.railway.app, http://localhost:3000",
-		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
-		AllowHeaders: "Origin,Content-Type,Accept,Authorization,X-API-Key",
+		AllowOrigins:     "https://keremkalyoncu.github.io, https://medyan-production.up.railway.app, http://localhost:3000",
+		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-API-Key",
 		AllowCredentials: true,
 	}))
 
