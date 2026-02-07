@@ -16,7 +16,7 @@
 
 ### 👨‍💻 Geliştirici
 
-**[Kerem Kalyoncu](https://github.com/KeremKalyoncu)** - *Full-Stack Developer | Backend Specialist*
+**[Kerem Kalyoncu](https://github.com/KeremKalyoncu)**
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Bağlan-0077B5?style=flat-square&logo=linkedin)](https://linkedin.com/in/kerem-kalyoncu-0753k)
 [![Instagram](https://img.shields.io/badge/Instagram-Takip_Et-E4405F?style=flat-square&logo=instagram)](https://instagram.com/krm_kalyoncu)
