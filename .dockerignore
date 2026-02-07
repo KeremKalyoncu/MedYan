@@ -1,0 +1,72 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build
+bin/
+dist/
+*.exe
+*.o
+*.out
+
+# Dependencies
+vendor/
+node_modules/
+
+# Logs
+*.log
+logs/
+
+# Temp files
+tmp/
+.tmp
+*.tmp
+
+# Tests
+*.cover
+coverage.out
+coverage.html
+
+# Documentation
+docs/
+.github/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.circleci/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Config files (except examples)
+.env
+.env.local
+secrets/
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+
+# Downloads
+downloads/
+
+# Runtime volumes
+data/

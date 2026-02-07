@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Extractor - Video & Müzik İndirin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.loading {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status.success {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .download-link {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .download-link:hover {
+            background: #764ba2;
+        }
+
+        .info-box {
+            background: #f5f5f5;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 30px;
+            font-size: 13px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #667eea;
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📥 Media Extractor</h1>
+            <p>YouTube videolarını ve müziği kolayca indirin</p>
+        </div>
+
+        <form id="extractForm">
+            <div class="form-group">
+                <label for="videoUrl">Video URL'i</label>
+                <input 
+                    type="text" 
+                    id="videoUrl" 
+                    placeholder="https://www.youtube.com/watch?v=..." 
+                    required
+                >
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="format">Format</label>
+                    <select id="format" required>
+                        <option value="mp4">Video (MP4) 🎬</option>
+                        <option value="mp3">Müzik (MP3) 🎵</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="quality">Kalite</label>
+                    <select id="quality" required>
+                        <option value="best">En İyi</option>
+                        <option value="1080p">1080p</option>
+                        <option value="720p" selected>720p</option>
+                        <option value="480p">480p</option>
+                        <option value="360p">360p</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" class="btn" id="submitBtn">İNDİRMEYE BAŞLA</button>
+        </form>
+
+        <div id="status" class="status">
+            <div id="statusMessage"></div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <strong>ℹ️ Nasıl Çalışır?</strong><br>
+            1. YouTube linkini yapıştır<br>
+            2. Format ve kalite seç<br>
+            3. "İndirmeye Başla" butonuna tıkla<br>
+            4. İndirme linkini al ve indir
+        </div>
+    </div>
+
+    <script>
+        // API Konfigürasyonu
+        const API_URL = 'https://your-api.railway.app'; // BURAYA RAILWAY URL GELECEK
+        const API_KEY = 'your-api-key'; // BURAYA API KEY GELECEK
+
+        const form = document.getElementById('extractForm');
+        const videoUrlInput = document.getElementById('videoUrl');
+        const formatSelect = document.getElementById('format');
+        const qualitySelect = document.getElementById('quality');
+        const submitBtn = document.getElementById('submitBtn');
+        const statusDiv = document.getElementById('status');
+        const statusMessage = document.getElementById('statusMessage');
+        const progressFill = document.getElementById('progressFill');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await handleSubmit();
+        });
+
+        async function handleSubmit() {
+            const url = videoUrlInput.value.trim();
+            const format = formatSelect.value;
+            const quality = qualitySelect.value;
+
+            if (!url) {
+                showStatus('Lütfen bir URL girin!', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            showStatus(`<span class="spinner"></span> İşleniyor...`, 'loading');
+            progressFill.style.width = '0%';
+
+            try {
+                // API'ye istek gönder
+                const response = await fetch(`${API_URL}/api/v1/extract?api_key=${API_KEY}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': API_KEY
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        format: format,
+                        quality: quality
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('API hatası');
+                }
+
+                const data = await response.json();
+                const jobId = data.job_id;
+
+                // Job durumunu kontrol et
+                await pollJobStatus(jobId);
+
+            } catch (error) {
+                showStatus(`❌ Hata: ${error.message}`, 'error');
+                submitBtn.disabled = false;
+            }
+        }
+
+        async function pollJobStatus(jobId, attempts = 0) {
+            if (attempts > 120) { // 4 dakika timeout
+                showStatus('❌ İşlem zaman aşımına uğradı', 'error');
+                submitBtn.disabled = false;
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/v1/jobs/${jobId}?api_key=${API_KEY}`, {
+                    headers: {
+                        'X-API-Key': API_KEY
+                    }
+                });
+
+                const job = await response.json();
+
+                // Progress güncelle
+                if (job.progress) {
+                    progressFill.style.width = job.progress + '%';
+                }
+
+                if (job.status === 'completed') {
+                    const downloadUrl = job.result.download_url;
+                    showStatus(
+                        `✅ Başarılı!<br><a href="${downloadUrl}" class="download-link" download>📥 İNDİR</a>`,
+                        'success'
+                    );
+                    submitBtn.disabled = false;
+                    return;
+                } else if (job.status === 'failed') {
+                    showStatus(`❌ İşlem başarısız: ${job.error}`, 'error');
+                    submitBtn.disabled = false;
+                    return;
+                }
+
+                // Henüz bitmedi, bir sonraki kontrol
+                setTimeout(() => pollJobStatus(jobId, attempts + 1), 2000);
+
+            } catch (error) {
+                console.error('Poll hatası:', error);
+                setTimeout(() => pollJobStatus(jobId, attempts + 1), 2000);
+            }
+        }
+
+        function showStatus(message, type) {
+            statusMessage.innerHTML = message;
+            statusDiv.className = `status show ${type}`;
+        }
+    </script>
+</body>
+</html>

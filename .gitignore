@@ -1,0 +1,86 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+*.out
+
+# Test & Coverage
+*.test
+coverage.out
+coverage.html
+*.cover
+
+# Go workspace file
+go.work
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.iml
+*.iws
+*.ipr
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs (Keep logs/ but ignore contents)
+logs/
+logs/**
+worker*.log
+api*.log
+*.log.gz
+
+# Extracted/Downloaded media files
+downloads/
+tmp/
+.tmp/
+temp/
+*.mp4
+*.mp3
+*.avi
+*.mkv
+*.mov
+*.webm
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+*_backup*
+
+# Cookies and auth data
+cookies/
+*.cookies
+secrets/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory
+
+# Cache
+.cache/
+*.cache
+pycache/
+__pycache__/
+node_modules/
