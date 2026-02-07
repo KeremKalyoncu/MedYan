@@ -18,10 +18,10 @@
 
 **[Kerem Kalyoncu](https://github.com/KeremKalyoncu)** - *Full-Stack Developer | Backend Specialist*
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Bağlan-0077B5?style=flat-square&logo=linkedin)](https://linkedin.com/in/keremkalyoncu)
-[![Instagram](https://img.shields.io/badge/Instagram-Takip_Et-E4405F?style=flat-square&logo=instagram)](https://instagram.com/keremkalyoncu)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Bağlan-0077B5?style=flat-square&logo=linkedin)](https://linkedin.com/in/kerem-kalyoncu-0753k)
+[![Instagram](https://img.shields.io/badge/Instagram-Takip_Et-E4405F?style=flat-square&logo=instagram)](https://instagram.com/krm_kalyoncu)
 [![GitHub](https://img.shields.io/badge/GitHub-Takip_Et-181717?style=flat-square&logo=github)](https://github.com/KeremKalyoncu)
-[![Email](https://img.shields.io/badge/Email-İletişim-D14836?style=flat-square&logo=gmail)](mailto:kerem@medyan.dev)
+[![Email](https://img.shields.io/badge/Email-İletişim-D14836?style=flat-square&logo=gmail)](mailto:gskerem200553@outlook.com)
 
 ---
 
@@ -250,10 +250,10 @@ Detaylar için [LICENSE](LICENSE) dosyasına bakın.
 
 **Bug bildirimi, özellik istekleri veya işbirlikleri:**
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/keremkalyoncu)
-[![Instagram](https://img.shields.io/badge/Instagram-E4405F?style=flat-square&logo=instagram&logoColor=white)](https://instagram.com/keremkalyoncu)
-[![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/keremkalyoncu)
-[![Email](https://img.shields.io/badge/Email-EA4335?style=flat-square&logo=gmail&logoColor=white)](mailto:contact@keremkalyoncu.com)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://linkedin.com/in/kerem-kalyoncu-0753k)
+[![Instagram](https://img.shields.io/badge/Instagram-E4405F?style=flat-square&logo=instagram&logoColor=white)](https://instagram.com/krm_kalyoncu)
+[![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/KeremKalyoncu)
+[![Email](https://img.shields.io/badge/Email-EA4335?style=flat-square&logo=gmail&logoColor=white)](mailto:gskerem200553@outlook.com)
 
 **Projeyi destekleyin:**
 ⭐ Repository'yi yıldızlayın • 📢 Arkadaşlarınızla paylaşın • 💻 Kod tabanına katkıda bulunun
@@ -266,7 +266,7 @@ Detaylar için [LICENSE](LICENSE) dosyasına bakın.
 
 **⭐ Beğendiyseniz yıldız vermeyi unutmayın!**
 
-Made with 💜 by [Kerem Kalyoncu](https://github.com/keremkalyoncu)
+Made with 💜 by [Kerem Kalyoncu](https://github.com/Keremkalyoncu)
 
 🚀 **[MedYan'ı Kullanmaya Başlayın](https://keremkalyoncu.github.io/medyan)**
 
