@@ -26,7 +26,12 @@ RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o bin/worker ./cmd/
 FROM alpine:latest
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates redis bash curl
+RUN apk add --no-cache ca-certificates redis bash curl ffmpeg python3 py3-pip && \
+    pip3 install --no-cache-dir --break-system-packages yt-dlp
+
+# Set FFmpeg environment variables for memory optimization
+ENV FFREPORT=file=/app/logs/ffmpeg-%t.log:level=32
+ENV FFMPEG_THREADS=2
 
 # Create non-root user
 RUN addgroup -g 1000 appuser && \
@@ -38,8 +43,9 @@ WORKDIR /app
 COPY --from=builder /app/bin/api /app/bin/api
 COPY --from=builder /app/bin/worker /app/bin/worker
 
-# Copy scripts
-COPY scripts/ ./scripts/
+# Copy entrypoint script
+COPY docker-entrypoint.sh /app/
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Create necessary directories
 RUN mkdir -p logs tmp downloads && \
@@ -51,10 +57,12 @@ USER appuser
 # Expose ports
 EXPOSE 8080 6379
 
+# Disable S3 by default - use local storage
+ENV S3_ENDPOINT=disabled
+
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
-# Start both API and Redis
-CMD redis-server --daemonize yes --logfile logs/redis.log && \
-    exec ./bin/api
+# Start with entrypoint script (runs Redis, Worker, and API)
+CMD ["/app/docker-entrypoint.sh"]
