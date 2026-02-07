@@ -32,6 +32,7 @@ RUN apk add --no-cache ca-certificates redis bash curl ffmpeg python3 py3-pip &&
 # Set FFmpeg environment variables for memory optimization
 ENV FFREPORT=file=/app/logs/ffmpeg-%t.log:level=32
 ENV FFMPEG_THREADS=2
+ENV FFMPEG_PATH=/usr/bin/ffmpeg
 
 # Create non-root user
 RUN addgroup -g 1000 appuser && \

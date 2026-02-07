@@ -285,6 +285,11 @@ func (y *YtDlp) buildDownloadArgs(url, outputPath string, opts DownloadOptions) 
 		formatStr := y.buildFormatString(opts.Quality, opts.Format)
 		args = append(args, "-f", formatStr)
 
+		// For MP4: explicitly set codec preferences for FFmpeg merging
+		if opts.Format == "mp4" || opts.Format == "" {
+			args = append(args, "--postprocessor-args", "-c:v h264 -c:a aac -bsf:a aac_adtstoasc")
+		}
+
 		// For non-standard formats, use remux/recode
 		if opts.Format != "" && opts.Format != "mp4" && opts.Format != "webm" {
 			args = append(args, "--recode-video", opts.Format)
@@ -334,25 +339,46 @@ func (y *YtDlp) buildDownloadArgs(url, outputPath string, opts DownloadOptions) 
 func (y *YtDlp) buildFormatString(quality, format string) string {
 	var formatStr string
 
-	// Use flexible format selection - don't restrict audio codec
-	// FFmpeg will handle merging different codecs
+	// For MP4: prefer h264/avc video + aac/m4a audio (best compatibility)
+	// For other formats: flexible selection and let FFmpeg handle codec conversion
+	
+	// YouTube generally provides these codec pairs that merge properly:
+	// - bestvideo[ext=mp4][vcodec^=avc1] + bestaudio[ext=m4a][acodec=aac]
+	// - Fallback: bestvideo[height<=X][vcodec^=avc1] + bestaudio[acodec=aac]
+	// - Final fallback: bestvideo[height<=X] + bestaudio
+
 	switch quality {
 	case "4k":
-		formatStr = "bestvideo[height<=2160]+bestaudio/best[height<=2160]/best"
+		if format == "mp4" || format == "" {
+			// MP4 prefers h264 + aac for best merge compatibility
+			formatStr = "bestvideo[height<=2160][vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo[height<=2160]+bestaudio"
+		} else {
+			formatStr = "bestvideo[height<=2160]+bestaudio/best[height<=2160]/best"
+		}
 	case "1080p":
-		formatStr = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
+		if format == "mp4" || format == "" {
+			formatStr = "bestvideo[height<=1080][vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo[height<=1080]+bestaudio"
+		} else {
+			formatStr = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
+		}
 	case "720p":
-		formatStr = "bestvideo[height<=720]+bestaudio/best[height<=720]/best"
+		if format == "mp4" || format == "" {
+			formatStr = "bestvideo[height<=720][vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo[height<=720]+bestaudio"
+		} else {
+			formatStr = "bestvideo[height<=720]+bestaudio/best[height<=720]/best"
+		}
 	case "480p":
-		formatStr = "bestvideo[height<=480]+bestaudio/best[height<=480]/best"
+		if format == "mp4" || format == "" {
+			formatStr = "bestvideo[height<=480][vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo[height<=480]+bestaudio"
+		} else {
+			formatStr = "bestvideo[height<=480]+bestaudio/best[height<=480]/best"
+		}
 	default:
-		formatStr = "bestvideo+bestaudio/best"
-	}
-
-	// Override extension if specific format requested
-	if format != "" && format != "mp4" {
-		// For non-mp4 formats, adjust the format string cautiously
-		formatStr = strings.ReplaceAll(formatStr, "[height<=720]", fmt.Sprintf("[ext=%s][height<=720]", format))
+		if format == "mp4" || format == "" {
+			formatStr = "bestvideo[vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo+bestaudio/best"
+		} else {
+			formatStr = "bestvideo+bestaudio/best"
+		}
 	}
 
 	return formatStr
