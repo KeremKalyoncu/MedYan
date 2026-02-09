@@ -111,3 +111,15 @@ var QualityPresets = map[string]QualityPreset{
 	"480p":  {Name: "480p", MaxHeight: 480, VideoBitrate: "1M", AudioBitrate: "128k"},
 	"best":  {Name: "best", MaxHeight: 0, VideoBitrate: "", AudioBitrate: ""},
 }
+
+// HistoryItem represents a download entry in site history
+type HistoryItem struct {
+	URL       string `json:"url"`
+	Title     string `json:"title"`
+	Thumbnail string `json:"thumbnail"`
+	Format    string `json:"format"`
+	Quality   string `json:"quality"`
+	Duration  int    `json:"duration"`
+	Platform  string `json:"platform"`
+	Timestamp int64  `json:"timestamp"`
+}

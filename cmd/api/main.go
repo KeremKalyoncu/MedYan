@@ -70,6 +70,10 @@ func main() {
 	detectionHandler := handlers.NewDetectionHandler(ytdlp, zapLogger)
 	zapLogger.Info("Smart platform detection enabled")
 
+	// Initialize history handler for site-specific download history
+	historyHandler := handlers.NewHistoryHandler(queueClient, zapLogger)
+	zapLogger.Info("Site-specific download history enabled")
+
 	// API key is mandatory for security in production
 	apiKey := getEnv("API_KEY", "")
 	if apiKey == "" {
@@ -465,6 +469,12 @@ func main() {
 			"message": "Webhook registered successfully",
 		})
 	})
+
+	// History endpoints (public - no API key required, site-specific)
+	history := app.Group("/api/history")
+	history.Post("/", historyHandler.AddToHistory)
+	history.Get("/", historyHandler.GetHistory)
+	history.Delete("/", historyHandler.ClearHistory)
 
 	// Start server
 	port := getEnv("PORT", "8080")

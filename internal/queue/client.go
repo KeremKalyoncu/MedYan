@@ -219,3 +219,8 @@ func (c *Client) Close() error {
 	}
 	return c.redis.Close()
 }
+
+// GetRedis returns the underlying redis client
+func (c *Client) GetRedis() *redis.Client {
+	return c.redis
+}

@@ -169,6 +169,34 @@
             margin-top: 10px;
         }
 
+        .btn-toggle-history {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            color: white;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(168, 85, 247, 0.3);
+        }
+
+        .btn-toggle-history:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(168, 85, 247, 0.5);
+        }
+
+        .btn-toggle-history:active {
+            transform: scale(0.95);
+        }
+
         /* Glass Card */
         .glass-card {
             background: var(--bg-card);
@@ -676,6 +704,186 @@
             50% { opacity: 0.7; }
         }
 
+        /* History Modal */
+        .history-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .history-modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            max-width: 320px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+
+        .history-modal-content h3 {
+            color: var(--text-primary);
+            margin-bottom: 24px;
+            font-size: 18px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(168, 85, 247, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(168, 85, 247, 0.1);
+            border-color: var(--primary);
+            color: var(--text-primary);
+        }
+
+        /* History Sidebar */
+        .history-sidebar {
+            display: none;
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 380px;
+            height: 100vh;
+            background: var(--bg-dark);
+            border-left: 1px solid var(--border);
+            flex-direction: column;
+            z-index: 100;
+            overflow: hidden;
+        }
+
+        .history-sidebar.show {
+            display: flex;
+        }
+
+        .history-sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(236, 72, 153, 0.1));
+        }
+
+        .history-sidebar-header h3 {
+            margin: 0;
+            font-size: 15px;
+            color: var(--text-primary);
+        }
+
+        .history-sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .history-sidebar-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .btn-clear-history {
+            width: 100%;
+            padding: 10px 16px;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-clear-history:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        .history-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(168, 85, 247, 0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            gap: 12px;
+        }
+
+        .history-item:hover {
+            background: rgba(168, 85, 247, 0.1);
+        }
+
+        .history-item-thumbnail {
+            width: 60px;
+            height: 60px;
+            border-radius: 6px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .history-item-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .history-item-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 6px;
+        }
+
+        .history-item-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 4px;
+        }
+
+        .history-item-badge {
+            display: inline-block;
+            background: rgba(168, 85, 247, 0.2);
+            color: var(--primary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .logo-text {
@@ -709,6 +917,7 @@
                 <h1 class="logo-text">MedYan</h1>
             </div>
             <p class="tagline">Next-Generation Media Extraction Platform</p>
+            <button id="toggleHistory" class="btn-toggle-history" title="Geçmiş">📜</button>
         </div>
 
         <!-- Main Card -->
@@ -816,6 +1025,33 @@
                 <div class="feature-title">Format Conversion</div>
                 <div class="feature-desc">Convert to MP4, MP3, WEBM, MKV with FFmpeg</div>
             </div>
+        </div>
+    </div>
+
+    <!-- History Modal (Add to History confirmation) -->
+    <div id="historyModal" class="history-modal" style="display: none;">
+        <div class="history-modal-content">
+            <h3>Geçmişe Eklensin mi?</h3>
+            <button id="historyModalYes" class="btn-primary">Evet, Ekle</button>
+            <button id="historyModalNo" class="btn-secondary">Hayır</button>
+        </div>
+    </div>
+
+    <!-- History Sidebar Panel (Desktop visible, Mobile as tab) -->
+    <div id="historySidebar" class="history-sidebar">
+        <div class="history-sidebar-header">
+            <h3>📜 Geçmiş</h3>
+        </div>
+        <div class="history-sidebar-content" id="historySidebarContent">
+            <div style="padding: 24px; text-align: center; color: var(--text-secondary);">
+                <i class="fas fa-inbox" style="font-size: 32px; margin-bottom: 12px; opacity: 0.5;"></i>
+                <p>Henüz indirme yok</p>
+            </div>
+        </div>
+        <div class="history-sidebar-footer">
+            <button id="clearHistoryBtn" class="btn-clear-history" style="display: none;">
+                <i class="fas fa-trash"></i> Temizle
+            </button>
         </div>
     </div>
 
@@ -1319,6 +1555,11 @@
                     );
                     submitBtn.disabled = false;
                     progressFill.style.width = '100%';
+                    
+                    // Show "Add to History?" modal after a short delay
+                    if (detectionData) {
+                        setTimeout(() => showAddToHistoryModal(downloadUrl), 1500);
+                    }
                 } else if (job.status === 'failed') {
                     showStatus(`✗ Extraction failed: ${job.error}`, 'error');
                     submitBtn.disabled = false;
@@ -1335,6 +1576,161 @@
             statusMessage.innerHTML = message;
             statusDiv.className = `status show ${type}`;
         }
+
+        // ============ HISTORY MANAGEMENT ============
+
+        const historyModal = document.getElementById('historyModal');
+        const historyModalYes = document.getElementById('historyModalYes');
+        const historyModalNo = document.getElementById('historyModalNo');
+        const historySidebar = document.getElementById('historySidebar');
+        const historySidebarContent = document.getElementById('historySidebarContent');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+        let pendingDownloadUrl = null;
+
+        // Toggle history sidebar visibility
+        document.getElementById('toggleHistory').addEventListener('click', () => {
+            historySidebar.classList.toggle('show');
+        });
+
+        // Show "Add to History?" modal
+        function showAddToHistoryModal(downloadUrl) {
+            pendingDownloadUrl = downloadUrl;
+            historyModal.style.display = 'flex';
+        }
+
+        // Handle "Yes" button in modal
+        historyModalYes.addEventListener('click', async () => {
+            if (!detectionData) {
+                hideAddToHistoryModal();
+                return;
+            }
+
+            const historyItem = {
+                url: currentUrl,
+                title: detectionData.title || 'Unknown',
+                thumbnail: detectionData.thumbnail || '',
+                format: selectedFormat || 'mp4',
+                quality: qualitySelect.value || 'auto',
+                duration: detectionData.duration || 0,
+                platform: detectionData.platform?.platform || 'unknown'
+            };
+
+            try {
+                await fetch(`${API_URL}/api/history`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(historyItem)
+                });
+
+                loadHistory();
+            } catch (error) {
+                console.error('Failed to add to history:', error);
+            }
+
+            hideAddToHistoryModal();
+        });
+
+        // Handle "No" button in modal
+        historyModalNo.addEventListener('click', hideAddToHistoryModal);
+
+        function hideAddToHistoryModal() {
+            historyModal.style.display = 'none';
+            pendingDownloadUrl = null;
+        }
+
+        // Close modal when clicking outside
+        historyModal.addEventListener('click', (e) => {
+            if (e.target === historyModal) {
+                hideAddToHistoryModal();
+            }
+        });
+
+        // Load and render history
+        async function loadHistory() {
+            try {
+                const response = await fetch(`${API_URL}/api/history`);
+                const data = await response.json();
+                const items = data.history || [];
+
+                if (items.length === 0) {
+                    historySidebarContent.innerHTML = `
+                        <div style="padding: 24px; text-align: center; color: var(--text-secondary);">
+                            <i class="fas fa-inbox" style="font-size: 32px; margin-bottom: 12px; opacity: 0.5;"></i>
+                            <p>Henüz indirme yok</p>
+                        </div>
+                    `;
+                    clearHistoryBtn.style.display = 'none';
+                    return;
+                }
+
+                clearHistoryBtn.style.display = 'block';
+                historySidebarContent.innerHTML = items.map((item, idx) => {
+                    const timeAgo = getTimeAgo(item.timestamp);
+                    const thumb = item.thumbnail ? `<img src="${item.thumbnail}" alt="" class="history-item-thumbnail">` 
+                        : `<div class="history-item-thumbnail" style="display:flex;align-items:center;justify-content:center;font-size:28px;">📁</div>`;
+
+                    return `
+                        <div class="history-item" data-index="${idx}" data-url="${escapeHtml(item.url)}">
+                            ${thumb}
+                            <div class="history-item-content">
+                                <div class="history-item-title">${escapeHtml(item.title)}</div>
+                                <div class="history-item-meta">
+                                    <span class="history-item-badge">${item.format.toUpperCase()}</span>
+                                    ${item.quality && item.quality !== 'auto' ? `<span class="history-item-badge">${item.quality}</span>` : ''}
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">${timeAgo}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                // Add click handlers
+                document.querySelectorAll('.history-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const url = item.dataset.url;
+                        videoUrlInput.value = url;
+                        videoUrlInput.dispatchEvent(new Event('input'));
+                    });
+                });
+            } catch (error) {
+                console.error('Failed to load history:', error);
+            }
+        }
+
+        // Clear history
+        clearHistoryBtn.addEventListener('click', async () => {
+            if (!confirm('Tüm geçmişi sil? Bu işlem geri alınamaz.')) return;
+
+            try {
+                await fetch(`${API_URL}/api/history`, { method: 'DELETE' });
+                loadHistory();
+            } catch (error) {
+                console.error('Failed to clear history:', error);
+            }
+        });
+
+        // Utility functions
+        function getTimeAgo(timestamp) {
+            const now = Math.floor(Date.now() / 1000);
+            const diff = now - timestamp;
+
+            if (diff < 60) return 'Just now';
+            if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+            if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
+            
+            return `${Math.floor(diff / 2592000)}mo ago`;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Load history on page load
+        window.addEventListener('load', loadHistory);
     </script>
 </body>
 </html>
