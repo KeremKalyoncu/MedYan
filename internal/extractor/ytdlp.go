@@ -160,8 +160,8 @@ func (y *YtDlp) ExtractMetadata(ctx context.Context, url string) (*types.MediaMe
 			// Add YouTube-specific headers and cookie handling for authentication
 			if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
 				args = append(args,
-					// Auto-detect cookies from installed browsers (Chrome, Firefox, Safari, Edge)
-					"--cookies-from-browser", "chrome,firefox,safari,edge",
+					// Auto-detect cookies from installed browsers (all supported by yt-dlp)
+					"--cookies-from-browser", "chrome,chromium,firefox,safari,edge,opera,brave,vivaldi,whale",
 					// Bypass bot detection with realistic User-Agent
 					"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 					// Use Android client for better availability and less rate limiting
@@ -341,7 +341,7 @@ func (y *YtDlp) buildDownloadArgs(url, outputPath string, opts DownloadOptions) 
 	if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
 		// Auto-detect cookies from installed browsers if no cookies file provided
 		if opts.CookiesFile == "" {
-			args = append(args, "--cookies-from-browser", "chrome,firefox,safari,edge")
+			args = append(args, "--cookies-from-browser", "chrome,chromium,firefox,safari,edge,opera,brave,vivaldi,whale")
 		}
 		// Use multiple player clients for better availability
 		args = append(args,
