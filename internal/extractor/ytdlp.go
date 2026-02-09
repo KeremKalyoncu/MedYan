@@ -343,47 +343,48 @@ func (y *YtDlp) buildDownloadArgs(url, outputPath string, opts DownloadOptions) 
 	return args
 }
 
-// buildFormatString creates yt-dlp format selection string
+// buildFormatString creates yt-dlp format selection string with platform-aware fallbacks
 func (y *YtDlp) buildFormatString(quality, format string) string {
 	var formatStr string
-
-	// For MP4: prefer h264/avc video + aac/m4a audio (best compatibility)
-	// For other formats: flexible selection and let FFmpeg handle codec conversion
 
 	// YouTube generally provides these codec pairs that merge properly:
 	// - bestvideo[ext=mp4][vcodec^=avc1] + bestaudio[ext=m4a][acodec=aac]
 	// - Fallback: bestvideo[height<=X][vcodec^=avc1] + bestaudio[acodec=aac]
 	// - Final fallback: bestvideo[height<=X] + bestaudio
 
+	// TikTok: MP4 format may not always be available with strict codec requirements
+	// Use more lenient selection for TikTok to avoid "Requested format is not available" errors
+
 	switch quality {
 	case "4k":
 		if format == "mp4" || format == "" {
-			// MP4 prefers h264 + aac for best merge compatibility
-			formatStr = "bestvideo[height<=2160][vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo[height<=2160]+bestaudio"
+			// MP4 with fallback to best available (handles TikTok format availability)
+			formatStr = "bestvideo[height<=2160][vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo[height<=2160]+bestaudio/best[height<=2160]/best"
 		} else {
 			formatStr = "bestvideo[height<=2160]+bestaudio/best[height<=2160]/best"
 		}
 	case "1080p":
 		if format == "mp4" || format == "" {
-			formatStr = "bestvideo[height<=1080][vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo[height<=1080]+bestaudio"
+			formatStr = "bestvideo[height<=1080][vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
 		} else {
 			formatStr = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
 		}
 	case "720p":
 		if format == "mp4" || format == "" {
-			formatStr = "bestvideo[height<=720][vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo[height<=720]+bestaudio"
+			formatStr = "bestvideo[height<=720][vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo[height<=720]+bestaudio/best[height<=720]/best"
 		} else {
 			formatStr = "bestvideo[height<=720]+bestaudio/best[height<=720]/best"
 		}
 	case "480p":
 		if format == "mp4" || format == "" {
-			formatStr = "bestvideo[height<=480][vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo[height<=480]+bestaudio"
+			formatStr = "bestvideo[height<=480][vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo[height<=480]+bestaudio/best[height<=480]/best"
 		} else {
 			formatStr = "bestvideo[height<=480]+bestaudio/best[height<=480]/best"
 		}
 	default:
 		if format == "mp4" || format == "" {
-			formatStr = "bestvideo[vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo+bestaudio/best"
+			// Lenient MP4 selection: try strict h264+aac first, then fallback to any format
+			formatStr = "bestvideo[vcodec^=avc1]+bestaudio[acodec=aac]/bestvideo+bestaudio[acodec=aac]/bestvideo+bestaudio/best"
 		} else {
 			formatStr = "bestvideo+bestaudio/best"
 		}
