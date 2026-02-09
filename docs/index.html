@@ -886,6 +886,27 @@
 
         /* Responsive */
         @media (max-width: 768px) {
+            .btn-toggle-history {
+                position: static;
+                margin-top: 12px;
+                width: 40px;
+                height: 40px;
+            }
+
+            .history-sidebar {
+                position: static;
+                width: 100%;
+                height: auto;
+                border-left: none;
+                border-top: 1px solid var(--border);
+                display: none;
+                margin-top: 24px;
+            }
+
+            .history-sidebar.show {
+                display: flex;
+            }
+
             .logo-text {
                 font-size: 36px;
             }
