@@ -5,6 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MedYan - Next-Gen Media Extractor</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Configuration: Load local config if available, otherwise use example -->
+    <script>
+        // Try to load local configuration
+        if (!window.MEDYAN_CONFIG) {
+            // Fallback to example config if local config not found
+            window.MEDYAN_CONFIG = {
+                API_URL: 'https://medyan-production.up.railway.app',
+                GITHUB_REPO: 'https://github.com/KeremKalyoncu/MedYan',
+                ENABLE_DURATION_LIMIT: true,
+                MAX_VIDEO_DURATION_SECONDS: 180,
+                THEME: 'dark',
+                LANGUAGE: 'tr',
+                DEBUG: false
+            };
+            console.warn('Using default configuration. For custom settings, create config.local.js');
+        }
+    </script>
+    <script src="config.local.js" onerror="console.log('config.local.js not found, using defaults')"></script>
+    
     <style>
         :root {
             --bg-dark: #0f0f1e;
@@ -800,7 +820,7 @@
     </div>
 
     <script>
-        const API_URL = 'https://medyan-production.up.railway.app';
+        const API_URL = window.MEDYAN_CONFIG?.API_URL || 'https://medyan-production.up.railway.app';
         
         const form = document.getElementById('extractForm');
         const videoUrlInput = document.getElementById('videoUrl');

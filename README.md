@@ -44,7 +44,110 @@
 
 ---
 
-## ✨ Özellikler
+## 🔧 Kurulum & Yapılandırma
+
+### Fork / Clone Edenlere
+
+MedYan'ı kendi Railway, Vercel veya özel serverinizde çalıştırmak istiyorsanız:
+
+#### 1️⃣ Repository'yi Fork/Clone Et
+
+```bash
+git clone https://github.com/YOUR_USERNAME/MedYan.git
+cd MedYan
+```
+
+#### 2️⃣ Backend Yapılandırması
+
+Backend için `.env.local` dosyası oluştur:
+
+```bash
+cp .env.example .env.local
+```
+
+Aşağıdaki değerleri kendi bilgilerin ile doldur:
+
+```env
+# API Güvenliği
+API_KEY=your-secure-api-key-here
+
+# Railway Deployment URL (veya kendi server adresin)
+API_URL=https://your-deployment.up.railway.app
+
+# Redis bağlantısı
+REDIS_ADDR=localhost:6379
+
+# S3/Depolama (AWS S3, MinIO, Cloudflare R2...)
+S3_REGION=us-east-1
+S3_BUCKET=your-bucket-name
+AWS_ACCESS_KEY_ID=your-key
+AWS_SECRET_ACCESS_KEY=your-secret
+```
+
+#### 3️⃣ Frontend Yapılandırması
+
+Frontend için `docs/config.local.js` dosyası oluştur:
+
+```bash
+cp docs/config.example.js docs/config.local.js
+```
+
+`docs/config.local.js` içeriğini düzenle:
+
+```javascript
+window.MEDYAN_CONFIG = {
+  API_URL: 'https://your-deployment.up.railway.app',
+  GITHUB_REPO: 'https://github.com/YOUR_USERNAME/MedYan',
+  ENABLE_DURATION_LIMIT: true,
+  MAX_VIDEO_DURATION_SECONDS: 180,
+  DEBUG: false
+};
+```
+
+#### 4️⃣ Railway'e Deploy Et
+
+1. [Railway.app](https://railway.app)'a kaydol
+2. New Project → GitHub Repository seç
+3. `.env` değerlerini Railway dashboard'unda ayarla
+4. Deploy butonuna tıkla
+
+**veya Docker ile:**
+
+```bash
+docker build -t medyan .
+docker run -p 8080:8080 \
+  -e API_KEY=yourkey \
+  -e REDIS_ADDR=redis:6379 \
+  medyan
+```
+
+#### 5️⃣ GitHub Pages'de Frontend Deploy Et
+
+1. `docs/` folder'ı GitHub Pages'e push et
+2. GitHub → Settings → Pages → Deploy from branch seç
+3. Branch: `main`, Folder: `/docs` seç
+4. `config.local.js` ile API_URL'i güncelle
+
+**Veya Vercel/Netlify:**
+
+```bash
+vercel deploy docs/
+```
+
+---
+
+## 📋 Yapılandırma Dosyaları
+
+| Dosya | Amaç | Kişiye Özel |
+|-------|------|-----------|
+| `.env.example` | Backend template | ✅ → `.env.local` oluştur |
+| `.env.local` | Backend secrets | 🔒 Git'e ekleme (.gitignore'da) |
+| `docs/config.example.js` | Frontend template | ✅ → `config.local.js` oluştur |
+| `docs/config.local.js` | Frontend settings | 🔒 Git'e ekleme (.gitignore'da) |
+
+---
+
+
 
 <table>
 <tr>

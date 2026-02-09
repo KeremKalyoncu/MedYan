@@ -30,6 +30,7 @@ go.work
 .env
 .env.local
 .env.*.local
+config.local.js
 
 # Logs (Keep logs/ but ignore contents)
 logs/
