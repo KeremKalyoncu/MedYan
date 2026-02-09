@@ -136,6 +136,7 @@
             text-align: center;
             padding: 40px 0;
             animation: fadeInDown 0.8s ease-out;
+            position: relative;
         }
 
         .logo {
@@ -176,25 +177,29 @@
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             border: none;
             color: white;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
+            padding: 10px 18px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 20px;
+            font-size: 14px;
+            font-weight: 600;
             transition: all 0.3s;
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 8px;
             box-shadow: 0 4px 15px rgba(168, 85, 247, 0.3);
         }
 
         .btn-toggle-history:hover {
-            transform: scale(1.1);
+            transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(168, 85, 247, 0.5);
         }
 
         .btn-toggle-history:active {
-            transform: scale(0.95);
+            transform: translateY(0);
+        }
+
+        .btn-toggle-history i {
+            font-size: 16px;
         }
 
         /* Glass Card */
@@ -888,9 +893,11 @@
         @media (max-width: 768px) {
             .btn-toggle-history {
                 position: static;
-                margin-top: 12px;
-                width: 40px;
-                height: 40px;
+                margin-top: 16px;
+                padding: 10px 16px;
+                width: auto;
+                font-size: 13px;
+                justify-content: center;
             }
 
             .history-sidebar {
@@ -900,11 +907,23 @@
                 border-left: none;
                 border-top: 1px solid var(--border);
                 display: none;
-                margin-top: 24px;
+                margin-top: 0;
             }
 
             .history-sidebar.show {
                 display: flex;
+                animation: slideDown 0.3s ease;
+            }
+
+            @keyframes slideDown {
+                from {
+                    opacity: 0;
+                    max-height: 0;
+                }
+                to {
+                    opacity: 1;
+                    max-height: 500px;
+                }
             }
 
             .logo-text {
@@ -938,7 +957,9 @@
                 <h1 class="logo-text">MedYan</h1>
             </div>
             <p class="tagline">Next-Generation Media Extraction Platform</p>
-            <button id="toggleHistory" class="btn-toggle-history" title="Geçmiş">📜</button>
+            <button id="toggleHistory" class="btn-toggle-history" title="İndirme Geçmişini Aç">
+                <i class="fas fa-history"></i> İndirme Geçmişi
+            </button>
         </div>
 
         <!-- Main Card -->
@@ -1612,6 +1633,13 @@
         // Toggle history sidebar visibility
         document.getElementById('toggleHistory').addEventListener('click', () => {
             historySidebar.classList.toggle('show');
+            
+            // Mobile: scroll to history panel smoothly
+            if (window.innerWidth <= 768 && historySidebar.classList.contains('show')) {
+                setTimeout(() => {
+                    historySidebar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
         });
 
         // Show "Add to History?" modal
