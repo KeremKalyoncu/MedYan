@@ -169,19 +169,19 @@ func (y *YtDlp) ExtractMetadata(ctx context.Context, url string) (*types.MediaMe
 	err := y.circuitBreaker.Execute(ctx, func() error {
 		return retry.Retry(ctx, y.retryConfig, func() error {
 			args := []string{
-				"--no-playlist", // Single video only
+				"--no-playlist",
 				"--no-warnings",
-				"--skip-download", // Metadata only
-				"--print-json",    // One JSON object per item
+				"--skip-download",
+				"--print-json",
 			}
 
 			// Add YouTube-specific optimization args
 			if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
 				args = append(args,
-					// Bypass bot detection with realistic User-Agent
+					"--cookies-from-browser", "chrome",
 					"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-					// Use Android client for better availability and less rate limiting
 					"--extractor-args", "youtube:player_client=android_vr,web",
+					"--extractor-retries", "3",
 				)
 			}
 
