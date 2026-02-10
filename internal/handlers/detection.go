@@ -99,12 +99,16 @@ func (h *DetectionHandler) DetectURL(c *fiber.Ctx) error {
 			zap.String("url", req.URL),
 		)
 
-		// Return basic platform info without metadata
+		// Generate standard formats even without metadata
+		standardFormats := h.generateStandardFormats(platformInfo)
+
+		// Return basic platform info with available formats
 		return c.JSON(fiber.Map{
-			"url":      req.URL,
-			"platform": platformInfo,
-			"error":    err.Error(),
-			"message":  "Could not fetch video details, but platform detected",
+			"url":               req.URL,
+			"platform":          platformInfo,
+			"available_formats": standardFormats,
+			"error":             err.Error(),
+			"message":           "Could not fetch video details, but platform detected",
 		})
 	}
 
