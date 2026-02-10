@@ -11,8 +11,10 @@ import (
 // If multiple requests come for the same URL, only one will execute
 // and all others will wait for and receive the same result
 type Singleflight struct {
-	mu    sync.Mutex
-	calls map[string]*call
+	mu      sync.Mutex
+	calls   map[string]*call
+	closeCh chan struct{} // For stopping cleanup goroutine
+	once    sync.Once     // Ensure Close() is called only once
 }
 
 // call represents an in-flight or completed Do call
@@ -35,7 +37,8 @@ type Result struct {
 // NewSingleflight creates a new Singleflight instance
 func NewSingleflight() *Singleflight {
 	sf := &Singleflight{
-		calls: make(map[string]*call),
+		calls:   make(map[string]*call),
+		closeCh: make(chan struct{}),
 	}
 
 	// Start cleanup goroutine
@@ -94,10 +97,15 @@ func (sf *Singleflight) DoContext(ctx context.Context, key string, fn func() (in
 		sf.mu.Unlock()
 
 		// Wait for either completion or context cancellation
-		done := make(chan struct{})
+		// Use buffered channel to prevent goroutine leak
+		done := make(chan struct{}, 1)
 		go func() {
 			c.wg.Wait()
-			close(done)
+			select {
+			case done <- struct{}{}:
+			default:
+				// Channel already closed/read, no-op
+			}
 		}()
 
 		select {
@@ -152,16 +160,29 @@ func (sf *Singleflight) cleanup() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		now := time.Now()
-		sf.mu.Lock()
-		for key, c := range sf.calls {
-			if now.After(c.deadline) {
-				delete(sf.calls, key)
+	for {
+		select {
+		case <-ticker.C:
+			now := time.Now()
+			sf.mu.Lock()
+			for key, c := range sf.calls {
+				if now.After(c.deadline) {
+					delete(sf.calls, key)
+				}
 			}
+			sf.mu.Unlock()
+		case <-sf.closeCh:
+			// Cleanup goroutine stopped
+			return
 		}
-		sf.mu.Unlock()
 	}
+}
+
+// Close stops the cleanup goroutine and releases resources
+func (sf *Singleflight) Close() {
+	sf.once.Do(func() {
+		close(sf.closeCh)
+	})
 }
 
 // Stats returns statistics about in-flight calls

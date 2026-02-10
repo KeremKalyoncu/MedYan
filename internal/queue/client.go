@@ -1,9 +1,11 @@
 package queue
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,8 +33,17 @@ type Client struct {
 func NewClient(redisAddr string, logger *zap.Logger) *Client {
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
 
+	// Optimize Redis client with connection pooling
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: redisAddr,
+		Addr:         redisAddr,
+		PoolSize:     20, // Increased connection pool (default: 10)
+		MinIdleConns: 5,  // Keep minimum idle connections
+		MaxRetries:   3,  // Retry failed commands
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
+		// Enable connection pooling optimizations
+		PoolTimeout: 4 * time.Second,
 	})
 
 	return &Client{
@@ -76,8 +87,9 @@ func (c *Client) EnqueueExtractionJob(ctx context.Context, req types.ExtractionR
 		asynq.MaxRetry(3),
 		asynq.Timeout(10 * time.Minute),
 		asynq.Retention(7 * 24 * time.Hour),
-		// Deduplication: same URL within 24h returns existing job
-		asynq.Unique(24 * time.Hour),
+		// Deduplication: same URL within 5 min (optimized from 24h)
+		// Shorter TTL reduces memory usage and allows retry faster
+		asynq.Unique(5 * time.Minute),
 		asynq.TaskID(jobID),
 	}
 
@@ -205,11 +217,106 @@ func (c *Client) getQueueForQuality(quality string) string {
 
 // triggerWebhook sends a POST request to the webhook URL (non-blocking)
 func (c *Client) triggerWebhook(job *types.ExtractionJob) {
-	// TODO: Implement HTTP POST to webhook URL with job result
-	c.logger.Info("Webhook triggered",
-		zap.String("job_id", job.ID),
-		zap.String("webhook_url", job.Request.WebhookURL),
-	)
+	// Skip if no webhook URL provided
+	if job.Request.WebhookURL == "" {
+		return
+	}
+
+	// Run in goroutine to avoid blocking
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Prepare webhook payload
+		payload := map[string]interface{}{
+			"job_id":     job.ID,
+			"status":     job.Status,
+			"url":        job.Request.URL,
+			"format":     job.Request.Format,
+			"error":      job.Error,
+			"created_at": job.CreatedAt,
+			"updated_at": job.UpdatedAt,
+		}
+
+		// Add result data if successful
+		if job.Status == "completed" && job.Result != nil {
+			payload["download_url"] = job.Result.DownloadURL
+			payload["size_bytes"] = job.Result.SizeBytes
+			payload["filename"] = job.Result.Filename
+			payload["format"] = job.Result.Format
+			payload["expires_at"] = job.Result.ExpiresAt
+		}
+
+		// Add metadata if available
+		if job.Metadata != nil {
+			payload["title"] = job.Metadata.Title
+			payload["duration"] = job.Metadata.Duration
+			payload["platform"] = job.Metadata.Platform
+		}
+
+		jsonData, err := json.Marshal(payload)
+		if err != nil {
+			c.logger.Error("Failed to marshal webhook payload",
+				zap.String("job_id", job.ID),
+				zap.Error(err),
+			)
+			return
+		}
+
+		// Create HTTP request
+		req, err := http.NewRequestWithContext(ctx, "POST", job.Request.WebhookURL, bytes.NewBuffer(jsonData))
+		if err != nil {
+			c.logger.Error("Failed to create webhook request",
+				zap.String("job_id", job.ID),
+				zap.Error(err),
+			)
+			return
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("User-Agent", "MediaExtraction-Webhook/1.0")
+
+		// Send request with retry logic (3 attempts)
+		client := &http.Client{Timeout: 10 * time.Second}
+		var lastErr error
+		for attempt := 1; attempt <= 3; attempt++ {
+			resp, err := client.Do(req)
+			if err != nil {
+				lastErr = err
+				c.logger.Warn("Webhook request failed, retrying...",
+					zap.String("job_id", job.ID),
+					zap.Int("attempt", attempt),
+					zap.Error(err),
+				)
+				time.Sleep(time.Duration(attempt) * time.Second) // Exponential backoff
+				continue
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				c.logger.Info("Webhook triggered successfully",
+					zap.String("job_id", job.ID),
+					zap.String("webhook_url", job.Request.WebhookURL),
+					zap.Int("status_code", resp.StatusCode),
+				)
+				return
+			}
+
+			lastErr = fmt.Errorf("webhook returned status %d", resp.StatusCode)
+			c.logger.Warn("Webhook returned non-2xx status, retrying...",
+				zap.String("job_id", job.ID),
+				zap.Int("status_code", resp.StatusCode),
+				zap.Int("attempt", attempt),
+			)
+			time.Sleep(time.Duration(attempt) * time.Second)
+		}
+
+		c.logger.Error("Webhook failed after 3 attempts",
+			zap.String("job_id", job.ID),
+			zap.String("webhook_url", job.Request.WebhookURL),
+			zap.Error(lastErr),
+		)
+	}()
 }
 
 // Close closes the client connections

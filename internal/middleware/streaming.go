@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/KeremKalyoncu/MedYan/internal/pool"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -85,8 +86,9 @@ func StreamFile(c *fiber.Ctx, filePath string, filename string) error {
 
 	// Stream file in chunks using fasthttp.StreamWriter
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
-		// Use 64KB buffer for efficient streaming
-		buffer := make([]byte, 64*1024)
+		// Use buffer pool for zero-allocation streaming (64KB)
+		buffer := pool.MediumSlicePool.Get()
+		defer pool.MediumSlicePool.Put(buffer)
 
 		for {
 			n, err := file.Read(buffer)
@@ -119,7 +121,9 @@ func StreamReader(c *fiber.Ctx, reader io.Reader, contentType string, filename s
 
 	// Stream data using fasthttp.StreamWriter
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
-		buffer := make([]byte, 64*1024)
+		// Use buffer pool for zero-allocation streaming (64KB)
+		buffer := pool.MediumSlicePool.Get()
+		defer pool.MediumSlicePool.Put(buffer)
 
 		for {
 			n, err := reader.Read(buffer)

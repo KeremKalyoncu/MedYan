@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/KeremKalyoncu/MedYan/internal/cache"
+	"github.com/KeremKalyoncu/MedYan/internal/cleanup"
 	"github.com/KeremKalyoncu/MedYan/internal/dedup"
 	"github.com/KeremKalyoncu/MedYan/internal/extractor"
 	"github.com/KeremKalyoncu/MedYan/internal/handlers"
@@ -58,12 +59,13 @@ func main() {
 
 	// Initialize request deduplication (prevents duplicate URL processing)
 	deduplicator := dedup.NewSingleflight()
+	defer deduplicator.Close()
 	zapLogger.Info("Request deduplication enabled - identical URLs will be coalesced")
 
 	// Initialize yt-dlp for smart URL detection (API-only, not worker)
 	ytdlpBinary := getEnv("YTDLP_PATH", "yt-dlp")
 	ytdlpTimeout := 120 * time.Second
-	ytdlp := extractor.NewYtDlp(ytdlpBinary, ytdlpTimeout, zapLogger)
+	ytdlp := extractor.NewYtDlp(ytdlpBinary, ytdlpTimeout, zapLogger, distCache)
 	zapLogger.Info("yt-dlp initialized for smart URL detection")
 
 	// Initialize detection handler for smart platform detection
@@ -73,6 +75,21 @@ func main() {
 	// Initialize history handler for site-specific download history
 	historyHandler := handlers.NewHistoryHandler(queueClient, zapLogger)
 	zapLogger.Info("Site-specific download history enabled")
+
+	// Start temp file cleanup service (prevents disk space issues)
+	tempDir := getEnv("TEMP_DIR", os.TempDir())
+	cleanupService := cleanup.NewTempFileCleanup(
+		tempDir,
+		1*time.Hour,    // Delete files older than 1 hour
+		30*time.Minute, // Check every 30 minutes
+		zapLogger,
+	)
+	cleanupService.Start(context.Background())
+	defer cleanupService.Stop()
+	zapLogger.Info("Temp file cleanup service started",
+		zap.String("temp_dir", tempDir),
+		zap.Duration("max_age", 1*time.Hour),
+	)
 
 	// API key is mandatory for security in production
 	apiKey := getEnv("API_KEY", "")
@@ -97,6 +114,14 @@ func main() {
 	// Middleware stack (order matters for performance)
 	app.Use(recover.New())
 
+	// Memory limit middleware - prevents individual requests from using too much memory
+	app.Use(middleware.MemoryLimitMiddleware(middleware.MemoryLimitConfig{
+		MaxMemoryMB:   500, // 500MB hard limit per request
+		SoftLimitMB:   200, // 200MB soft limit triggers GC
+		CheckInterval: 500 * time.Millisecond,
+		Logger:        zapLogger,
+	}))
+
 	// Compression middleware - reduces bandwidth by 60-80% for JSON responses
 	app.Use(middleware.CompressionMiddleware())
 
@@ -104,9 +129,9 @@ func main() {
 		Format: "[${time}] ${status} - ${latency} ${method} ${path}\n",
 	}))
 
-	// CORS security: Only allow trusted origins
+	// CORS security: Only allow trusted origins (from environment)
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "https://keremkalyoncu.github.io, https://medyan-production.up.railway.app, http://localhost:3000",
+		AllowOrigins:     getEnv("CORS_ORIGINS", "http://localhost:3000"),
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-API-Key",
 		AllowCredentials: true,
@@ -114,6 +139,7 @@ func main() {
 
 	// Rate limiting on proxy endpoints (100 req/min per IP)
 	rateLimiter := middleware.NewRateLimiter(100, time.Minute)
+	defer rateLimiter.Close()
 
 	// Metrics middleware
 	metricsInstance := metrics.GetMetrics()
@@ -190,15 +216,30 @@ func main() {
 			})
 		}
 
-		// Quick duration check (max 3 minutes)
-		durationCtx, durationCancel := context.WithTimeout(c.Context(), 15*time.Second)
-		metadata, _ := ytdlp.ExtractMetadata(durationCtx, req.URL)
-		durationCancel()
+		// Quick duration check using metadata cache (3-8s → 50ms)
+		// This prevents unnecessary yt-dlp calls for every request
+		var duration int
+		if distCache != nil {
+			ctx := c.Context()
+			if cachedMeta, err := distCache.GetMetadata(ctx, req.URL); err == nil && cachedMeta != nil {
+				duration = cachedMeta.Duration
+			}
+		}
 
-		if metadata != nil && metadata.Duration > 180 {
+		// Only fetch metadata if not cached
+		if duration == 0 {
+			durationCtx, durationCancel := context.WithTimeout(c.Context(), 15*time.Second)
+			metadata, _ := ytdlp.ExtractMetadata(durationCtx, req.URL)
+			durationCancel()
+			if metadata != nil {
+				duration = metadata.Duration
+			}
+		}
+
+		if duration > 180 {
 			return c.Status(403).JSON(fiber.Map{
 				"error":        "VIDEO_TOO_LONG",
-				"duration":     metadata.Duration,
+				"duration":     duration,
 				"max_duration": 180,
 				"message":      "Video süre limiti aşıldı. Şu anda maksimum 3 dakikalık videolar desteklenmektedir.",
 			})
@@ -236,8 +277,9 @@ func main() {
 	})
 
 	// Proxy job status endpoint - Check job progress without API key
+	// Rate limited to prevent job ID enumeration attacks
 	// Cache completed jobs for 5 minutes to reduce load
-	proxy.Get("/jobs/:id", middleware.ConditionalCacheMiddleware(
+	proxy.Get("/jobs/:id", rateLimiter.Middleware(), middleware.ConditionalCacheMiddleware(
 		func(c *fiber.Ctx) bool {
 			// Only cache completed jobs
 			jobID := c.Params("id")
@@ -342,15 +384,29 @@ func main() {
 			})
 		}
 
-		// Quick duration check (max 3 minutes)
-		durationCtx, durationCancel := context.WithTimeout(c.Context(), 15*time.Second)
-		metadata, _ := ytdlp.ExtractMetadata(durationCtx, req.URL)
-		durationCancel()
+		// Quick duration check using metadata cache (3-8s → 50ms)
+		var duration int
+		if distCache != nil {
+			ctx := c.Context()
+			if cachedMeta, err := distCache.GetMetadata(ctx, req.URL); err == nil && cachedMeta != nil {
+				duration = cachedMeta.Duration
+			}
+		}
 
-		if metadata != nil && metadata.Duration > 180 {
+		// Only fetch metadata if not cached
+		if duration == 0 {
+			durationCtx, durationCancel := context.WithTimeout(c.Context(), 15*time.Second)
+			metadata, _ := ytdlp.ExtractMetadata(durationCtx, req.URL)
+			durationCancel()
+			if metadata != nil {
+				duration = metadata.Duration
+			}
+		}
+
+		if duration > 180 {
 			return c.Status(403).JSON(fiber.Map{
 				"error":        "VIDEO_TOO_LONG",
-				"duration":     metadata.Duration,
+				"duration":     duration,
 				"max_duration": 180,
 				"message":      "Video süre limiti aşıldı. Şu anda maksimum 3 dakikalık videolar desteklenmektedir.",
 			})

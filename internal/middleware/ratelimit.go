@@ -13,6 +13,8 @@ type RateLimiter struct {
 	mu      sync.RWMutex
 	rate    int           // requests per window
 	window  time.Duration // time window
+	closeCh chan struct{} // For stopping cleanup goroutine
+	once    sync.Once     // Ensure Close() is called only once
 }
 
 type clientBucket struct {
@@ -26,6 +28,7 @@ func NewRateLimiter(requestsPerWindow int, window time.Duration) *RateLimiter {
 		clients: make(map[string]*clientBucket),
 		rate:    requestsPerWindow,
 		window:  window,
+		closeCh: make(chan struct{}),
 	}
 
 	// Cleanup goroutine - remove stale clients every 5 minutes
@@ -89,14 +92,27 @@ func (rl *RateLimiter) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		rl.mu.Lock()
-		now := time.Now()
-		for clientID, bucket := range rl.clients {
-			if now.Sub(bucket.lastRefill) > 10*time.Minute {
-				delete(rl.clients, clientID)
+	for {
+		select {
+		case <-ticker.C:
+			rl.mu.Lock()
+			now := time.Now()
+			for clientID, bucket := range rl.clients {
+				if now.Sub(bucket.lastRefill) > 10*time.Minute {
+					delete(rl.clients, clientID)
+				}
 			}
+			rl.mu.Unlock()
+		case <-rl.closeCh:
+			// Cleanup goroutine stopped
+			return
 		}
-		rl.mu.Unlock()
 	}
+}
+
+// Close stops the cleanup goroutine and releases resources
+func (rl *RateLimiter) Close() {
+	rl.once.Do(func() {
+		close(rl.closeCh)
+	})
 }

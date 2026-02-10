@@ -12,6 +12,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/KeremKalyoncu/MedYan/internal/cache"
+	"github.com/KeremKalyoncu/MedYan/internal/cleanup"
 	"github.com/KeremKalyoncu/MedYan/internal/extractor"
 	"github.com/KeremKalyoncu/MedYan/internal/handlers"
 	"github.com/KeremKalyoncu/MedYan/internal/queue"
@@ -41,8 +43,32 @@ func main() {
 		s3Endpoint = ""
 	}
 
+	// Initialize distributed cache for metadata caching (1-hour TTL)
+	distCache, err := cache.NewDistributedCache(redisAddr, zapLogger)
+	if err != nil {
+		zapLogger.Warn("Failed to initialize distributed cache", zap.Error(err))
+		distCache = nil // Continue without cache
+	} else {
+		defer distCache.Close()
+		zapLogger.Info("Distributed cache initialized for metadata caching")
+	}
+
+	// Start temp file cleanup service
+	tempDir := getEnv("TEMP_DIR", os.TempDir())
+	cleanupService := cleanup.NewTempFileCleanup(
+		tempDir,
+		1*time.Hour,    // Delete files older than 1 hour
+		30*time.Minute, // Check every 30 minutes
+		zapLogger,
+	)
+	cleanupService.Start(context.Background())
+	defer cleanupService.Stop()
+	zapLogger.Info("Temp file cleanup service started",
+		zap.String("temp_dir", tempDir),
+	)
+
 	// Initialize extractors
-	ytdlp := extractor.NewYtDlp(ytdlpPath, 10*time.Minute, zapLogger)
+	ytdlp := extractor.NewYtDlp(ytdlpPath, 10*time.Minute, zapLogger, distCache)
 	ffmpeg := extractor.NewFFmpeg(ffmpegPath, 30*time.Minute, zapLogger)
 
 	// Initialize storage
@@ -113,19 +139,32 @@ func main() {
 	// Start worker in goroutine
 	go func() {
 		if err := workerServer.Start(); err != nil {
-			zapLogger.Fatal("Worker error", zap.Error(err))
+			zapLogger.Error("Worker error", zap.Error(err))
 		}
 	}()
 
-	// Wait for interrupt signal
+	// Wait for interrupt signal for graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	zapLogger.Info("Shutting down worker...")
-	workerServer.Shutdown()
+	zapLogger.Info("Shutting down worker gracefully...")
 
-	zapLogger.Info("Worker stopped")
+	// Create shutdown context with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	// Shutdown worker server (waits for in-flight jobs)
+	workerServer.Shutdown()
+	zapLogger.Info("Worker server stopped")
+
+	// Cleanup resources
+	select {
+	case <-shutdownCtx.Done():
+		zapLogger.Warn("Shutdown timeout exceeded, forcing exit")
+	default:
+		zapLogger.Info("Worker shutdown completed successfully")
+	}
 }
 
 func getEnv(key, defaultValue string) string {

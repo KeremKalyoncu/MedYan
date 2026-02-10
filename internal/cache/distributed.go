@@ -155,12 +155,25 @@ func (dc *DistributedCache) IncrementDownloadCount(ctx context.Context, url stri
 }
 
 // GetPopularURLs returns the most frequently downloaded URLs
+// Uses SCAN instead of KEYS for production safety (non-blocking)
 func (dc *DistributedCache) GetPopularURLs(ctx context.Context, limit int64) (map[string]int64, error) {
 	// This is a simplified version - in production, you'd use a sorted set
 	pattern := "url:count:*"
-	keys, err := dc.client.Keys(ctx, pattern).Result()
-	if err != nil {
-		return nil, err
+
+	// Use SCAN instead of KEYS to avoid blocking Redis
+	var cursor uint64
+	var keys []string
+	for {
+		var batch []string
+		var err error
+		batch, cursor, err = dc.client.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, batch...)
+		if cursor == 0 {
+			break
+		}
 	}
 
 	result := make(map[string]int64)
@@ -173,7 +186,7 @@ func (dc *DistributedCache) GetPopularURLs(ctx context.Context, limit int64) (ma
 		cmds[key] = pipe.Get(ctx, key)
 	}
 
-	_, err = pipe.Exec(ctx)
+	_, err := pipe.Exec(ctx)
 	if err != nil && err != redis.Nil {
 		return nil, err
 	}

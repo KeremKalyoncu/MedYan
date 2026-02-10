@@ -19,8 +19,17 @@ type CacheManager struct {
 
 // NewCacheManager creates a new cache manager
 func NewCacheManager(redisAddr string, logger *zap.Logger) (*CacheManager, error) {
+	// Optimize Redis client with connection pooling
 	client := redis.NewClient(&redis.Options{
-		Addr: redisAddr,
+		Addr:         redisAddr,
+		PoolSize:     20, // Increased connection pool (default: 10)
+		MinIdleConns: 5,  // Keep minimum idle connections
+		MaxRetries:   3,  // Retry failed commands
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
+		// Enable connection pooling optimizations
+		PoolTimeout: 4 * time.Second,
 	})
 
 	// Test connection
@@ -114,12 +123,24 @@ func (cm *CacheManager) Delete(ctx context.Context, key string) error {
 }
 
 // DeletePattern deletes all keys matching a pattern
+// Uses SCAN instead of KEYS for production safety (non-blocking)
 func (cm *CacheManager) DeletePattern(ctx context.Context, pattern string) error {
 	fullPattern := cm.prefix + pattern
 
-	keys, err := cm.client.Keys(ctx, fullPattern).Result()
-	if err != nil {
-		return fmt.Errorf("failed to list keys: %w", err)
+	// Use SCAN instead of KEYS to avoid blocking Redis
+	var cursor uint64
+	var keys []string
+	for {
+		var batch []string
+		var err error
+		batch, cursor, err = cm.client.Scan(ctx, cursor, fullPattern, 100).Result()
+		if err != nil {
+			return fmt.Errorf("failed to scan keys: %w", err)
+		}
+		keys = append(keys, batch...)
+		if cursor == 0 {
+			break
+		}
 	}
 
 	if len(keys) == 0 {
@@ -127,12 +148,20 @@ func (cm *CacheManager) DeletePattern(ctx context.Context, pattern string) error
 		return nil
 	}
 
-	if err := cm.client.Del(ctx, keys...).Err(); err != nil {
-		cm.logger.Error("Failed to delete cache pattern",
-			zap.String("pattern", pattern),
-			zap.Error(err),
-		)
-		return fmt.Errorf("failed to delete cache pattern: %w", err)
+	// Delete keys in batches to avoid large DEL commands
+	batchSize := 100
+	for i := 0; i < len(keys); i += batchSize {
+		end := i + batchSize
+		if end > len(keys) {
+			end = len(keys)
+		}
+		if err := cm.client.Del(ctx, keys[i:end]...).Err(); err != nil {
+			cm.logger.Error("Failed to delete cache pattern batch",
+				zap.String("pattern", pattern),
+				zap.Error(err),
+			)
+			return fmt.Errorf("failed to delete cache pattern: %w", err)
+		}
 	}
 
 	cm.logger.Debug("Cache pattern deleted",
@@ -190,15 +219,27 @@ func (cm *CacheManager) SetExpire(ctx context.Context, key string, ttl time.Dura
 }
 
 // Count returns the count of all cached items
+// Uses SCAN instead of KEYS for production safety (non-blocking)
 func (cm *CacheManager) Count(ctx context.Context) (int64, error) {
 	pattern := cm.prefix + "*"
 
-	keys, err := cm.client.Keys(ctx, pattern).Result()
-	if err != nil {
-		return 0, fmt.Errorf("failed to count keys: %w", err)
+	// Use SCAN instead of KEYS to avoid blocking Redis
+	var cursor uint64
+	var count int64
+	for {
+		var batch []string
+		var err error
+		batch, cursor, err = cm.client.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return 0, fmt.Errorf("failed to scan keys: %w", err)
+		}
+		count += int64(len(batch))
+		if cursor == 0 {
+			break
+		}
 	}
 
-	return int64(len(keys)), nil
+	return count, nil
 }
 
 // Close closes the Redis connection

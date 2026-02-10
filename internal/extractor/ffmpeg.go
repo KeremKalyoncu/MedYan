@@ -100,9 +100,9 @@ func (f *FFmpeg) ConvertFormat(ctx context.Context, inputPath, outputFormat, cod
 
 	kwargs := ffmpeg.KwArgs{
 		"c:v": codec,
-		// PERFORMANCE OPTIMIZED: 3-5x faster encoding
+		// PERFORMANCE OPTIMIZED: 5-10x faster encoding with ultrafast
 		"threads":               "2",          // Limit to 2 threads (Railway CPU)
-		"preset":                "superfast",  // 3-5x faster than veryfast, good quality
+		"preset":                "ultrafast",  // Maximum speed (5-10x faster than veryfast)
 		"max_muxing_queue_size": "1024",       // Limit buffer size
 		"movflags":              "+faststart", // Web-optimized MP4
 	}
@@ -110,8 +110,8 @@ func (f *FFmpeg) ConvertFormat(ctx context.Context, inputPath, outputFormat, cod
 	if bitrate != "" {
 		kwargs["b:v"] = bitrate
 	} else {
-		// Use CRF for quality-based encoding (more memory efficient)
-		kwargs["crf"] = "22" // Slightly better quality for superfast preset
+		// Use CRF for quality-based encoding (adjusted for ultrafast)
+		kwargs["crf"] = "24" // Higher CRF for ultrafast preset (still good quality)
 	}
 
 	// Copy audio stream if possible (no re-encoding)
@@ -148,16 +148,16 @@ func (f *FFmpeg) DownscaleVideo(ctx context.Context, inputPath string, maxHeight
 		"c:v": codec,
 		"c:a": "copy",
 		"vf":  scaleFilter, // Use vf parameter instead of Filter()
-		// Performance optimized
+		// Performance optimized: ultrafast = 5-10x faster
 		"threads":               "2",
-		"preset":                "superfast", // 3-5x faster
+		"preset":                "ultrafast", // Maximum speed encoding
 		"max_muxing_queue_size": "1024",
 	}
 
 	if bitrate != "" {
 		kwargs["b:v"] = bitrate
 	} else {
-		kwargs["crf"] = "22" // Adjusted for superfast
+		kwargs["crf"] = "24" // Adjusted for ultrafast
 	}
 
 	err := ffmpeg.Input(inputPath).
