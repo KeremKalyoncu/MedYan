@@ -45,16 +45,28 @@ func NewCustomError(code string, message string, statusCode int) *CustomError {
 	}
 }
 
-// WithCause adds an underlying error
+// WithCause returns a copy of the error with an underlying cause.
+// Returns a new instance to avoid mutating shared sentinel errors.
 func (e *CustomError) WithCause(err error) *CustomError {
-	e.Cause = err
-	return e
+	return &CustomError{
+		Code:       e.Code,
+		Message:    e.Message,
+		StatusCode: e.StatusCode,
+		Cause:      err,
+		Details:    e.Details,
+	}
 }
 
-// WithDetails adds additional error details
+// WithDetails returns a copy of the error with additional details.
+// Returns a new instance to avoid mutating shared sentinel errors.
 func (e *CustomError) WithDetails(details interface{}) *CustomError {
-	e.Details = details
-	return e
+	return &CustomError{
+		Code:       e.Code,
+		Message:    e.Message,
+		StatusCode: e.StatusCode,
+		Cause:      e.Cause,
+		Details:    details,
+	}
 }
 
 // Pre-defined errors

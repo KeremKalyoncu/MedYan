@@ -163,9 +163,22 @@ func (h *DetectionHandler) parseAvailableFormats(metadata *types.MediaMetadata, 
 				FileSize:   f.Filesize,
 				Bitrate:    f.Bitrate,
 				Codec:      f.Codec,
-				HasAudio:   f.AudioCodec != "",
-				HasVideo:   f.VideoCodec != "",
+				HasAudio:   f.AudioCodec != "" && f.AudioCodec != "none",
+				HasVideo:   f.VideoCodec != "" && f.VideoCodec != "none",
 			})
+
+			// If both HasAudio and HasVideo are false but we have resolution with dimensions,
+			// it's likely a combined stream (e.g., Twitter mp4)
+			lastIdx := len(formats) - 1
+			if !formats[lastIdx].HasAudio && !formats[lastIdx].HasVideo {
+				if f.Width > 0 || f.Height > 0 {
+					// Has video dimensions, so it has video
+					formats[lastIdx].HasVideo = true
+					formats[lastIdx].HasAudio = true // Twitter/Reddit MPs4s are usually muxed
+				} else if strings.Contains(strings.ToLower(f.Resolution), "audio") {
+					formats[lastIdx].HasAudio = true
+				}
+			}
 		}
 	}
 
@@ -219,11 +232,11 @@ func (h *DetectionHandler) generateStandardFormats(platform PlatformInfo) []Form
 func (h *DetectionHandler) recommendBestFormat(formats []FormatInfo) *FormatInfo {
 	var best *FormatInfo
 
+	// Pass 1: Prefer mp4 with video+audio, highest resolution
 	for i := range formats {
 		format := &formats[i]
 
-		// Prefer video+audio combined
-		if !format.HasAudio || !format.HasVideo {
+		if !format.HasVideo {
 			continue
 		}
 
@@ -232,11 +245,13 @@ func (h *DetectionHandler) recommendBestFormat(formats []FormatInfo) *FormatInfo
 			continue
 		}
 
-		// Prefer 1080p or highest available
+		// Prefer highest resolution
 		if format.Height > 0 {
 			if best == nil || format.Height > best.Height {
 				best = format
 			}
+		} else if best == nil {
+			best = format
 		}
 	}
 
@@ -297,6 +312,17 @@ func detectPlatformFromURL(url string) string {
 // getPlatformInfo returns platform-specific capabilities
 func getPlatformInfo(platform string) PlatformInfo {
 	switch platform {
+	case "reddit":
+		return PlatformInfo{
+			Platform:           "reddit",
+			PlatformName:       "Reddit",
+			SupportedFormats:   []string{"mp4"},
+			SupportedQualities: []string{"480p", "720p", "1080p"},
+			SupportsAudio:      true,
+			SupportsVideo:      true,
+			RequiresAuth:       false,
+		}
+
 	case "youtube":
 		return PlatformInfo{
 			Platform:           "youtube",

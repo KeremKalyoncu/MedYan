@@ -157,11 +157,9 @@ func (y *YtDlp) ExtractMetadata(ctx context.Context, url string) (*types.MediaMe
 				"--print-json",    // One JSON object per item
 			}
 
-			// Add YouTube-specific headers and cookie handling for authentication
+			// Add YouTube-specific optimization args
 			if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
 				args = append(args,
-					// Auto-detect cookies from installed browsers (all supported by yt-dlp)
-					"--cookies-from-browser", "chrome,chromium,firefox,safari,edge,opera,brave,vivaldi,whale",
 					// Bypass bot detection with realistic User-Agent
 					"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 					// Use Android client for better availability and less rate limiting
@@ -337,18 +335,9 @@ func (y *YtDlp) buildDownloadArgs(url, outputPath string, opts DownloadOptions) 
 		args = append(args, "--proxy", opts.ProxyURL)
 	}
 
-	// YouTube-specific authentication and optimization
+	// YouTube-specific optimization
 	if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
-		// Auto-detect cookies from installed browsers if no cookies file provided
-		if opts.CookiesFile == "" {
-			args = append(args, "--cookies-from-browser", "chrome,chromium,firefox,safari,edge,opera,brave,vivaldi,whale")
-		}
-		// Use multiple player clients for better availability
-		args = append(args,
-			"--extractor-args", "youtube:player_client=android_vr,web",
-		)
-	} else {
-		// For other platforms, include generic extractor args
+		// Use multiple player clients for better availability and less rate limiting
 		args = append(args,
 			"--extractor-args", "youtube:player_client=android_vr,web",
 		)

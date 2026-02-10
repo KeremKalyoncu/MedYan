@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"os"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -77,7 +78,7 @@ func StreamFile(c *fiber.Ctx, filePath string, filename string) error {
 	// Set headers for streaming download
 	c.Set("Content-Type", "application/octet-stream")
 	c.Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
-	c.Set("Content-Length", string(rune(stat.Size())))
+	c.Set("Content-Length", strconv.FormatInt(stat.Size(), 10))
 	c.Set("Transfer-Encoding", "chunked")
 	c.Set("Cache-Control", "no-cache")
 	c.Set("X-Content-Type-Options", "nosniff")

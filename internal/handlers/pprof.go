@@ -3,6 +3,7 @@ package handlers
 import (
 	"runtime"
 	"runtime/pprof"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -69,7 +70,7 @@ func pprofIndex(c *fiber.Ctx) error {
 	<li><a href="/debug/pprof/allocs">allocs profile</a></li>
 	<li><a href="/debug/pprof/trace?seconds=5">5-second execution trace</a></li>
 	</ul>
-	<p>Total profiles: ` + string(rune(len(profiles))) + `</p>
+	<p>Total profiles: ` + strconv.Itoa(len(profiles)) + `</p>
 	</body></html>`
 
 	c.Set("Content-Type", "text/html")
