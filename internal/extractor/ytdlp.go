@@ -175,12 +175,24 @@ func (y *YtDlp) ExtractMetadata(ctx context.Context, url string) (*types.MediaMe
 				"--print-json",
 			}
 
-			// Add YouTube-specific optimization args
+			// Platform-specific bypass strategies
 			if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
 				args = append(args,
-					"--cookies-from-browser", "chrome",
-					"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-					"--extractor-args", "youtube:player_client=android_vr,web",
+					// Multiple client strategies for bot bypass
+					"--extractor-args", "youtube:player_client=android,ios,web,mweb",
+					"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+					"--extractor-retries", "5",
+					// Force IPv4 (some bot detection on IPv6)
+					"--force-ipv4",
+				)
+			} else if strings.Contains(url, "instagram.com") {
+				args = append(args,
+					"--user-agent", "Instagram 76.0.0.15.395 Android (24/7.0; 640dpi; 1440x2560; samsung; SM-G930F; herolte; samsungexynos8890; en_US; 138226743)",
+					"--extractor-retries", "5",
+				)
+			} else if strings.Contains(url, "reddit.com") {
+				args = append(args,
+					"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
 					"--extractor-retries", "3",
 				)
 			}
