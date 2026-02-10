@@ -173,27 +173,31 @@ func (y *YtDlp) ExtractMetadata(ctx context.Context, url string) (*types.MediaMe
 				"--no-warnings",
 				"--skip-download",
 				"--print-json",
+				"--no-check-certificate", // Bypass SSL issues
+				"--geo-bypass",           // Bypass geo-restrictions
+				"--extractor-retries", "10", // More aggressive retries
 			}
 
 			// Platform-specific bypass strategies
 			if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
 				args = append(args,
-					// Multiple client strategies for bot bypass
-					"--extractor-args", "youtube:player_client=android,ios,web,mweb",
-					"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-					"--extractor-retries", "5",
-					// Force IPv4 (some bot detection on IPv6)
+					// Try multiple clients in order
+					"--extractor-args", "youtube:player_client=android,ios,tv_embedded,web,mweb",
+					"--user-agent", "com.google.android.youtube/17.36.4 (Linux; U; Android 12; US) gzip",
 					"--force-ipv4",
+					// Skip unavailable fragments
+					"--fragment-retries", "10",
 				)
 			} else if strings.Contains(url, "instagram.com") {
 				args = append(args,
-					"--user-agent", "Instagram 76.0.0.15.395 Android (24/7.0; 640dpi; 1440x2560; samsung; SM-G930F; herolte; samsungexynos8890; en_US; 138226743)",
-					"--extractor-retries", "5",
+					// Instagram mobile app user-agent
+					"--user-agent", "Instagram 269.0.0.18.75 Android (33/13; 480dpi; 1080x2400; Xiaomi/Redmi; M2012K11AG; venus; qcom; en_US; 436384447)",
+					"--referer", "https://www.instagram.com/",
 				)
-			} else if strings.Contains(url, "reddit.com") {
+			} else if strings.Contains(url, "reddit.com") || strings.Contains(url, "redd.it") {
 				args = append(args,
-					"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-					"--extractor-retries", "3",
+					"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
+					"--referer", "https://www.reddit.com/",
 				)
 			}
 
